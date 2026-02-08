@@ -131,10 +131,7 @@ class GeofencingService {
     // Get initial position
     try {
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 0,
-        ),
+        desiredAccuracy: LocationAccuracy.high,
       );
       await _onPositionChanged(pos);
     } catch (e) {

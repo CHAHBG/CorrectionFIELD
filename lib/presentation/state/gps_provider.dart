@@ -87,9 +87,7 @@ class GpsNotifier extends StateNotifier<GpsState> {
     // Get initial position
     try {
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+        desiredAccuracy: LocationAccuracy.high,
       );
       _updateFromPosition(pos);
     } catch (e) {

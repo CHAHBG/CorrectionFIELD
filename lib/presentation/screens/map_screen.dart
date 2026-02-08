@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +30,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   MaplibreMapController? _mapController;
   bool _mapReady = false;
   bool _sourcesAdded = false;
+
+  bool _isExporting = false;
 
   // Sénégal / Kédougou-Tambacounda region center
   static const _initialCenter = LatLng(12.8, -12.5);
@@ -88,6 +91,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             pendingCount: 0, // TODO: wire to sync service
             onTap: _onSyncTap,
           ),
+          IconButton(
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download),
+            onPressed: _isExporting ? null : () => _onExportTap(mapState),
+            tooltip: 'Exporter corrections (GeoJSON/CSV)',
+          ),
           // Commune manual selector
           IconButton(
             icon: const Icon(Icons.list),
@@ -137,36 +151,56 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
 
-          // ── No commune message ──
+          // ── No commune message + Load Demo button ──
           if (!mapState.isLoading && mapState.currentCommune == null)
             Positioned(
               top: 16,
               right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppTheme.gpsPoor.withOpacity(0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.warning_amber,
-                        color: AppTheme.gpsPoor, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Hors commune',
-                      style: TextStyle(
-                        color: AppTheme.gpsPoor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: AppTheme.gpsPoor.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.warning_amber,
+                            color: AppTheme.gpsPoor, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Hors commune',
+                          style: TextStyle(
+                            color: AppTheme.gpsPoor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Button to load demo data or select a commune
+                  ElevatedButton.icon(
+                    onPressed: _onLoadDemoData,
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('Charger démo'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
@@ -241,6 +275,139 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _onMapCreated(MaplibreMapController controller) {
     _mapController = controller;
+  }
+
+  /// Load demo data into the database and refresh the map.
+  Future<void> _onLoadDemoData() async {
+    final demoService = ref.read(demoDataServiceProvider);
+
+    // Check if already loaded
+    final alreadyLoaded = await demoService.isDemoDataLoaded();
+    if (alreadyLoaded) {
+      // Just refresh and let user select a commune
+      await ref.read(mapProvider.notifier).initialize();
+      if (mounted) {
+        _showCommuneSelector(ref.read(mapProvider).allCommunes);
+      }
+      return;
+    }
+
+    // Show loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Chargement des données démo...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final counts = await demoService.loadDemoData();
+
+      // Reinitialize map state to load new communes
+      await ref.read(mapProvider.notifier).initialize();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Démo chargée: ${counts['communes']} communes, ${counts['parcels']} parcelles',
+          ),
+          backgroundColor: AppTheme.gpsExcellent,
+        ),
+      );
+
+      // Open commune selector so user can pick one
+      final allCommunes = ref.read(mapProvider).allCommunes;
+      if (allCommunes.isNotEmpty) {
+        _showCommuneSelector(allCommunes);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Erreur: $e'),
+          backgroundColor: AppTheme.gpsPoor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onExportTap(MapState mapState) async {
+    final current = mapState.currentCommune;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Exporter les corrections',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Génère 2 fichiers: .geojson + .csv, puis ouvre le partage.',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 12),
+                if (current != null)
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(ctx, 'current'),
+                    icon: const Icon(Icons.place),
+                    label: Text('Commune: ${current.name}'),
+                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, 'all'),
+                  icon: const Icon(Icons.public),
+                  label: const Text('Toutes les communes'),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (choice == null) return;
+
+    setState(() => _isExporting = true);
+    try {
+      final exportService = ref.read(exportServiceProvider);
+      final communeRef = (choice == 'current') ? current?.communeRef : null;
+
+      final result = await exportService.exportCorrections(
+        communeRef: communeRef,
+        share: true,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Export terminé: ${result.featureCount} corrections',
+          ),
+          backgroundColor: AppTheme.gpsExcellent,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Export impossible: $e'),
+          backgroundColor: AppTheme.gpsPoor,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   void _onStyleLoaded() {

@@ -40,6 +40,46 @@ class CorrectionsDao {
     return db.query('corrections', orderBy: 'updated_at DESC');
   }
 
+  /// Returns corrections joined with their parcel row (including parcel geometry).
+  /// Optionally filters by [communeRef].
+  Future<List<Map<String, Object?>>> findCorrectionsWithParcels({
+    String? communeRef,
+  }) async {
+    final communeClause = communeRef != null ? 'AND p.commune_ref = ?' : '';
+    final args = <Object?>[];
+    if (communeRef != null) args.add(communeRef);
+
+    return db.rawQuery('''
+      SELECT
+        c.uuid AS correction_uuid,
+        c.parcel_id AS parcel_id,
+        c.num_parcel AS corrected_num_parcel,
+        c.enqueteur AS enqueteur,
+        c.survey_status AS survey_status,
+        c.notes AS notes,
+        c.gps_latitude AS gps_latitude,
+        c.gps_longitude AS gps_longitude,
+        c.gps_accuracy AS gps_accuracy,
+        c.geom_json AS correction_geom_json,
+        c.created_at AS correction_created_at,
+        c.updated_at AS correction_updated_at,
+        c.dirty AS dirty,
+
+        p.commune_ref AS commune_ref,
+        p.num_parcel AS original_num_parcel,
+        p.parcel_type AS parcel_type,
+        p.status AS parcel_status,
+        p.geom_json AS parcel_geom_json,
+        p.source_file AS source_file,
+        p.updated_at AS parcel_updated_at
+      FROM corrections c
+      INNER JOIN parcels p ON p.id = c.parcel_id
+      WHERE p.is_deleted = 0
+        $communeClause
+      ORDER BY c.updated_at DESC
+    ''', args);
+  }
+
   // ── Check uniqueness ──────────────────────────────────────
 
   /// Returns true if [numParcel] already exists in corrections table

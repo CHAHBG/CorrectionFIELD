@@ -7,6 +7,8 @@ import '../../data/local/db/app_database.dart';
 import '../../data/repositories/corrections_repository.dart';
 import '../../data/repositories/parcels_repository.dart';
 import '../../services/delta_sync_service.dart';
+import '../../services/demo_data_service.dart';
+import '../../services/export_service.dart';
 import '../../services/geofencing_service.dart';
 import '../../services/gpkg_import_service.dart';
 import '../../services/kobo_bridge.dart';
@@ -75,4 +77,12 @@ final koboBridgeProvider = Provider<KoboBridge>((ref) {
 
 final gpkgImportServiceProvider = Provider<GpkgImportService>((ref) {
   return GpkgImportService(ref.watch(appDatabaseProvider));
+});
+
+final exportServiceProvider = Provider<ExportService>((ref) {
+  return ExportService(correctionsDao: ref.watch(correctionsDaoProvider));
+});
+
+final demoDataServiceProvider = Provider<DemoDataService>((ref) {
+  return DemoDataService(ref.watch(appDatabaseProvider));
 });
