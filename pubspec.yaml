@@ -1,4 +1,7 @@
-name: procaselfield
+name: correction_field
+description: >
+  PROCASEF Correction Field — Application mobile offline-first pour la
+  correction foncière de parcelles orphelines au Sénégal (17 communes).
 version: 0.1.0
 publish_to: none
 
@@ -8,14 +11,47 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # ── State management ──
   flutter_riverpod: ^2.4.9
-  geolocator: ^11.0.0
+  riverpod_annotation: ^2.3.3
+
+  # ── Map & GIS ──
+  maplibre_gl: ^0.18.0
+
+  # ── Database ──
   sqflite: ^2.3.0
+
+  # ── GPS / Location ──
+  geolocator: ^11.0.0
+
+  # ── Networking / Sync ──
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+
+  # ── Deep links / Kobo bridge ──
+  url_launcher: ^6.2.2
+  android_intent_plus: ^4.0.3
+
+  # ── File & paths ──
   path_provider: ^2.1.1
   path: ^1.9.0
-  maplibre_gl: ^0.16.0
+  file_picker: ^6.1.1
+
+  # ── Utilities ──
+  uuid: ^4.2.2
+  intl: ^0.19.0
+  collection: ^1.18.0
+  logger: ^2.0.2+1
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/schema.sql
+    - assets/map_style.json
