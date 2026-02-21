@@ -1,0 +1,43 @@
+# =============================================================
+#  CorrectionFIELD — Caddy reverse proxy
+#  Auto-TLS via Let's Encrypt. Replace {$DOMAIN} with your domain.
+# =============================================================
+
+{$DOMAIN} {
+	# ── Supabase API (PostgREST + Auth + Realtime via Kong) ──
+	handle /rest/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /auth/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /realtime/* {
+		reverse_proxy kong:8000
+	}
+
+	# ── Supabase Studio (admin panel) ──
+	handle /studio/* {
+		reverse_proxy studio:3000
+	}
+
+	# ── Export API (FastAPI) ──
+	handle /export/* {
+		reverse_proxy export_api:8100
+	}
+	handle /projects/*/layers {
+		reverse_proxy export_api:8100
+	}
+
+	# ── Default: route everything else to Kong API ──
+	handle /* {
+		reverse_proxy kong:8000
+	}
+}
+
+# ── Studio on subdomain (alternative) ──
+# Uncomment if you prefer studio.yourdomain.com
+# studio.{$DOMAIN} {
+# 	reverse_proxy studio:3000
+# }
