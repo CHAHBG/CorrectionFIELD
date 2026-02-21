@@ -4,6 +4,7 @@
 
 import { supabase } from '@/infra/supabase';
 import type { Correction, CorrectionStatus } from '@/shared/types';
+import { geometryToEwkt } from '@/shared/utils/geometry';
 
 function snakeToCorrection(row: Record<string, unknown>): Correction {
   return {
@@ -47,9 +48,11 @@ export const correctionsApi = {
       user_id: correction.userId,
       device_id: correction.deviceId,
       props_patch: correction.propsPatch,
-      geom_corrected: correction.geomCorrected,
+      geom_corrected: correction.geomCorrected ? geometryToEwkt(correction.geomCorrected as GeoJSON.Geometry) : null,
       notes: correction.notes,
-      gps_point: correction.gpsPoint,
+      gps_point: correction.gpsPoint
+        ? geometryToEwkt({ type: 'Point', coordinates: correction.gpsPoint } as GeoJSON.Point)
+        : null,
       gps_accuracy: correction.gpsAccuracy,
       media_urls: correction.mediaUrls ?? [],
       status: 'submitted',

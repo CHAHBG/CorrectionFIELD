@@ -4,6 +4,7 @@
 
 import { supabase } from '@/infra/supabase';
 import type { AppFeature, FeatureStatus } from '@/shared/types';
+import { geometryToEwkt } from '@/shared/utils/geometry';
 
 function snakeToFeature(row: Record<string, unknown>): AppFeature {
   return {
@@ -69,9 +70,10 @@ export const featuresApi = {
   },
 
   async updateGeometry(id: string, geom: unknown): Promise<void> {
+    const geometry = geom as GeoJSON.Geometry;
     const { error } = await supabase
       .from('features')
-      .update({ geom, updated_at: new Date().toISOString() })
+      .update({ geom: geometryToEwkt(geometry), updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) throw error;
@@ -105,7 +107,7 @@ export const featuresApi = {
     const rows = features.map((f) => ({
       id: f.id,
       layer_id: f.layerId,
-      geom: f.geom,
+      geom: f.geom ? geometryToEwkt(f.geom as GeoJSON.Geometry) : null,
       props: f.props ?? {},
       status: f.status ?? 'pending',
       source_file: f.sourceFile,
