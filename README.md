@@ -1,15 +1,28 @@
-# PROCASEF Correction Field App
+# CorrectionFIELD
 
-Prototype Flutter app for offline-first land parcel correction in PROCASEF communes.
+Monorepo for the PROCASEF CorrectionFIELD project.
 
-## Features scaffolded
-- High-contrast UI for field work.
-- GPS accuracy badge.
-- Offline database schema (SQLite) with parcel/correction tables.
-- Geofencing flow (commune lookup + parcel filtering).
-- Service stubs for delta sync and Kobo bridge.
+## Structure
+-   **`web/`**: React + Vite web application.
+-   **`mobile/`**: React Native mobile application (Offline-first).
+-   **`data/`**: Source GeoPackage files.
 
-## Next steps
-- Wire MapLibre map widget and vector tile source.
-- Add SpatiaLite extension loader for spatial queries.
-- Implement sync APIs and Kobo deep links.
+## Getting Started
+
+### Web
+```bash
+cd web
+npm install
+npm run dev
+```
+
+### Backend (Supabase)
+
+Follow [docs/backend-setup.md](docs/backend-setup.md) to create and connect the backend.
+
+### Mobile
+```bash
+cd mobile
+npm install
+npx react-native run-android
+```

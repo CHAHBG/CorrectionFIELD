@@ -1,0 +1,15 @@
+{
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "App.tsx", "index.js"],
+  "exclude": ["node_modules"]
+}
