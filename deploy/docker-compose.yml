@@ -133,7 +133,7 @@ services:
       - |
         sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g" /var/lib/kong/kong.yml > /tmp/kong.yml
         export KONG_DECLARATIVE_CONFIG=/tmp/kong.yml
-        exec kong docker-start
+        exec /docker-entrypoint.sh kong docker-start
     volumes:
       - ./volumes/kong/kong.yml:/var/lib/kong/kong.yml:ro
     ports:
