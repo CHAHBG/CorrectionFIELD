@@ -46,7 +46,7 @@ services:
 consumers:
   - username: anon
     keyauth_credentials:
-      - key: ${ANON_KEY}
+      - key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzcxNjM2NjE3LCJleHAiOjIwODY5OTY2MTd9.rXJyUcWAksQDMyvsQLkCEur2VSiX_pF_9yEnDs7IqwY
   - username: service_role
     keyauth_credentials:
-      - key: ${SERVICE_ROLE_KEY}
+      - key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzE2MzY2MTcsImV4cCI6MjA4Njk5NjYxN30.YBdofLxkWc7AsSgEQqRqR-774RefjP9K3aFZnkh4OK8

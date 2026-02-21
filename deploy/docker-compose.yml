@@ -126,14 +126,6 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      ANON_KEY: ${ANON_KEY}
-      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g" /var/lib/kong/kong.yml > /tmp/kong.yml
-        export KONG_DECLARATIVE_CONFIG=/tmp/kong.yml
-        exec /docker-entrypoint.sh kong docker-start
     volumes:
       - ./volumes/kong/kong.yml:/var/lib/kong/kong.yml:ro
     ports:
