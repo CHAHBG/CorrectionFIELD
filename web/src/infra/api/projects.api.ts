@@ -5,11 +5,34 @@
 import { supabase } from '@/infra/supabase';
 import type { Project, ProjectSettings } from '@/shared/types';
 
+async function requireAuthUser() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('Session expirée. Veuillez vous reconnecter.');
+  }
+
+  const { data: { user }, error } = await supabase.auth.getUser(session.access_token);
+
+  if (error) {
+    const message = error.message?.toLowerCase?.() ?? '';
+    if (message.includes('invalid authentication credentials') || message.includes('jwt')) {
+      await supabase.auth.signOut();
+      throw new Error('Session invalide. Veuillez vous reconnecter puis réessayer.');
+    }
+    throw error;
+  }
+
+  if (!user) {
+    throw new Error('Utilisateur non authentifié');
+  }
+
+  return user;
+}
+
 export const projectsApi = {
   /** Get all projects the current user is a member of */
   async getMyProjects(): Promise<Project[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    const user = await requireAuthUser();
 
     const { data, error } = await supabase
       .from('projects')
@@ -64,8 +87,7 @@ export const projectsApi = {
     description?: string;
     settings?: Partial<ProjectSettings>;
   }): Promise<Project> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const user = await requireAuthUser();
 
     const { data, error } = await supabase
       .from('projects')
@@ -88,11 +110,13 @@ export const projectsApi = {
     if (error) throw error;
 
     // Add creator as admin member
-    await supabase.from('project_members').insert({
+    const { error: memberError } = await supabase.from('project_members').insert({
       project_id: data.id,
       user_id: user.id,
       role: 'admin',
     });
+
+    if (memberError) throw memberError;
 
     return mapProject(data);
   },

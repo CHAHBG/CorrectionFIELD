@@ -102,6 +102,7 @@ services:
       ERL_AFLAGS: "-proto_dist inet_tcp"
       ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
+      RLIMIT_NOFILE: "8192"
     deploy:
       resources:
         limits:
@@ -125,6 +126,16 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    command: >
+      /bin/sh -ec "
+      sed -e \"s|\\${ANON_KEY}|$ANON_KEY|g\" \
+        -e \"s|\\${SERVICE_ROLE_KEY}|$SERVICE_ROLE_KEY|g\" \
+          /var/lib/kong/kong.yml > /tmp/kong.yml;
+      export KONG_DECLARATIVE_CONFIG=/tmp/kong.yml;
+      exec /docker-entrypoint.sh kong docker-start
+      "
     volumes:
       - ./volumes/kong/kong.yml:/var/lib/kong/kong.yml:ro
     ports:
@@ -137,7 +148,7 @@ services:
 
   # ── Supabase Studio — Admin UI ────────────────────
   studio:
-    image: supabase/studio:20240923-0e08252
+    image: supabase/studio:latest
     restart: unless-stopped
     depends_on:
       kong:

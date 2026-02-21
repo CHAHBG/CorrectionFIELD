@@ -98,22 +98,119 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 // ── Login page ──────────────────────────────────────
 function LoginPage() {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [loadingAction, setLoadingAction] = useState<'login' | 'signup' | null>(null);
+
+  const isSignup = mode === 'signup';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setSuccess('');
+    setLoadingAction('login');
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur de connexion');
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!fullName.trim() || !email || !password || !confirmPassword) {
+      setError('Nom complet, email et mots de passe sont requis');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    setLoadingAction('signup');
+    try {
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      const isExistingUser =
+        data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+      if (isExistingUser) {
+        setError('Un compte existe déjà avec cet email. Connectez-vous.');
+        return;
+      }
+
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          setSuccess('Compte créé. Vérifiez votre email pour confirmer votre compte.');
+          return;
+        }
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: user.id,
+              email,
+              full_name: fullName.trim(),
+            },
+            { onConflict: 'id' },
+          );
+
+        if (profileError) {
+          throw profileError;
+        }
+      }
+
+      setSuccess('Compte créé et enregistré avec succès.');
+      setMode('login');
+      setConfirmPassword('');
+      setPassword('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de création de compte');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const switchMode = (nextMode: 'login' | 'signup') => {
+    setMode(nextMode);
+    setError('');
+    setSuccess('');
+    if (nextMode === 'login') {
+      setConfirmPassword('');
     }
   };
 
@@ -125,7 +222,41 @@ function LoginPage() {
           <p className="mt-1 text-sm text-gray-500">Correction collaborative de données terrain</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => switchMode('login')}
+            className={`rounded-md py-2 text-sm font-medium ${
+              mode === 'login' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+            }`}
+          >
+            Se connecter
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode('signup')}
+            className={`rounded-md py-2 text-sm font-medium ${
+              mode === 'signup' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+            }`}
+          >
+            Créer un compte
+          </button>
+        </div>
+
+        <form onSubmit={isSignup ? handleSignup : handleLogin} className="space-y-4">
+          {isSignup && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Nom complet</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
@@ -147,14 +278,30 @@ function LoginPage() {
             />
           </div>
 
+          {isSignup && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+              />
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {success && <p className="text-sm text-green-600">{success}</p>}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loadingAction !== null}
             className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Connexion…' : 'Se connecter'}
+            {loadingAction === 'login' && 'Connexion…'}
+            {loadingAction === 'signup' && 'Création…'}
+            {loadingAction === null && (isSignup ? 'Créer mon compte' : 'Se connecter')}
           </button>
         </form>
       </div>

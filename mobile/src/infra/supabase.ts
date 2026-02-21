@@ -5,7 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = 'http://localhost:8000'; // Override via env
+const SUPABASE_URL = 'http://34.27.247.149'; // Override via env
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzcxNjM2NjE3LCJleHAiOjIwODY5OTY2MTd9.rXJyUcWAksQDMyvsQLkCEur2VSiX_pF_9yEnDs7IqwY';
 
