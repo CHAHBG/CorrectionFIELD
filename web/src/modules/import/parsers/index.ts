@@ -4,6 +4,7 @@
 
 import type { GeometryType, FieldSchema } from '@/shared/types';
 import { inferFieldsFromProperties } from '@/modules/forms/odk/XlsFormParser';
+import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 
 export interface ParseResult {
   features: GeoJSON.Feature[];
@@ -34,7 +35,7 @@ export async function parseGpkg(file: File): Promise<ParseResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { default: initSqlJs } = await import('sql.js' as any) as any;
   const SQL = await initSqlJs({
-    locateFile: (f: string) => `https://sql.js.org/dist/${f}`,
+    locateFile: () => sqlWasmUrl,
   });
 
   const buffer = await file.arrayBuffer();
@@ -63,8 +64,12 @@ export async function parseGpkg(file: File): Promise<ParseResult> {
     (c: string) => c !== geomCol && c !== 'fid' && c !== 'id'
   );
 
+  const quotedGeomCol = `"${geomCol.replace(/"/g, '""')}"`;
+  const quotedPropCols = propCols.map((c: string) => `"${c.replace(/"/g, '""')}"`);
+  const selectedColumns = ['fid', quotedGeomCol, ...quotedPropCols].join(', ');
+
   // Read features
-  const rows = sqlDb.exec(`SELECT fid, ${geomCol}, ${propCols.join(', ')} FROM "${tableName}"`)[0];
+  const rows = sqlDb.exec(`SELECT ${selectedColumns} FROM "${tableName}"`)[0];
   const features: GeoJSON.Feature[] = [];
 
   if (rows) {
