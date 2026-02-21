@@ -378,22 +378,46 @@ function ImportingStep({
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
   const [currentLayer, setCurrentLayer] = useState('');
+  const [currentStep, setCurrentStep] = useState('Préparation de l\'import…');
   const startedRef = useRef(false);
+
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`${label} trop lente (> ${Math.round(ms / 1000)}s). Réessayez avec moins de fichiers.`));
+          }, ms);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
 
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!currentProject) throw new Error('Aucun projet actif');
 
-      const BATCH_SIZE = 500;
+      const BATCH_SIZE = 50;
+      const REQUEST_TIMEOUT_MS = 45000;
       const totalFeatures = results.reduce((acc, result) => acc + result.features.length, 0);
       let importedFeatures = 0;
+
+      if (totalFeatures === 0) {
+        throw new Error('Aucune feature détectée dans les fichiers sélectionnés');
+      }
 
       for (let layerIndex = 0; layerIndex < results.length; layerIndex++) {
         const result = results[layerIndex];
         const layerName = layerNames[layerIndex] ?? result.name;
         setCurrentLayer(layerName);
+        setCurrentStep(`Création de la couche ${layerIndex + 1}/${results.length}…`);
 
-        const layer = await layersApi.create({
+        const layer = await withTimeout(layersApi.create({
           projectId: currentProject.id,
           name: layerName,
           geometryType: result.geometryType,
@@ -409,9 +433,15 @@ function ImportingStep({
               strokeOpacity: 1,
             },
           },
-        });
+        }), REQUEST_TIMEOUT_MS, `Création de couche (${layerName})`);
+
+        setProgress(Math.max(1, Math.round((importedFeatures / totalFeatures) * 100)));
 
         for (let i = 0; i < result.features.length; i += BATCH_SIZE) {
+          setCurrentStep(
+            `Import batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(result.features.length / BATCH_SIZE)} (${layerIndex + 1}/${results.length})`
+          );
+
           const batch = result.features.slice(i, i + BATCH_SIZE).map((f) => ({
             layerId: layer.id,
             geom: f.geometry,
@@ -419,7 +449,7 @@ function ImportingStep({
             status: 'draft' as FeatureStatus,
           }));
 
-          await featuresApi.bulkInsert(batch);
+          await withTimeout(featuresApi.bulkInsert(batch), REQUEST_TIMEOUT_MS, `Import features (${layerName})`);
           importedFeatures += batch.length;
           setProgress(Math.min(100, Math.round((importedFeatures / Math.max(1, totalFeatures)) * 100)));
           await new Promise((resolve) => setTimeout(resolve, 0));
@@ -449,6 +479,7 @@ function ImportingStep({
           <Spinner />
           <p className="text-sm text-gray-600">Import en cours… {progress}%</p>
           {currentLayer && <p className="text-xs text-gray-500">Couche en cours: {currentLayer}</p>}
+          <p className="text-xs text-gray-400">{currentStep}</p>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-blue-500 rounded-full h-2 transition-all"
