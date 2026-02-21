@@ -49,6 +49,7 @@ export async function parseGpkg(file: File): Promise<ParseResult> {
 
   const tableName = String(tables.values[0][0]);
   const srsId = tables.values[0][1];
+  const quotedTableName = `"${tableName.replace(/"/g, '""')}"`;
 
   // Discover the geometry column
   const geomColResult = sqlDb.exec(
@@ -63,18 +64,19 @@ export async function parseGpkg(file: File): Promise<ParseResult> {
   const propCols: string[] = allCols.filter(
     (c: string) => c !== geomCol && c !== 'fid' && c !== 'id'
   );
+  const idCol = allCols.includes('fid') ? 'fid' : (allCols.includes('id') ? 'id' : null);
 
   const quotedGeomCol = `"${geomCol.replace(/"/g, '""')}"`;
   const quotedPropCols = propCols.map((c: string) => `"${c.replace(/"/g, '""')}"`);
-  const selectedColumns = ['fid', quotedGeomCol, ...quotedPropCols].join(', ');
+  const selectedColumns = [idCol ? `"${idCol}"` : 'rowid as __rowid__', quotedGeomCol, ...quotedPropCols].join(', ');
 
   // Read features
-  const rows = sqlDb.exec(`SELECT ${selectedColumns} FROM "${tableName}"`)[0];
+  const rows = sqlDb.exec(`SELECT ${selectedColumns} FROM ${quotedTableName}`)[0];
   const features: GeoJSON.Feature[] = [];
 
   if (rows) {
-    for (const row of rows.values) {
-      const fid = row[0];
+    for (const [index, row] of rows.values.entries()) {
+      const fid = row[0] ?? index + 1;
       const geomBlob = row[1] as Uint8Array | null;
       const geometry = geomBlob ? parseGpkgGeometry(geomBlob) : null;
       if (!geometry) continue;
@@ -194,49 +196,137 @@ function parseGpkgGeometry(blob: Uint8Array): GeoJSON.Geometry | null {
 }
 
 function parseWkbGeometry(blob: Uint8Array, offset: number): GeoJSON.Geometry | null {
-  if (offset >= blob.length) return null;
-  const dv = new DataView(blob.buffer, blob.byteOffset + offset);
-  const littleEndian = dv.getUint8(0) === 1;
-  const typeRaw = littleEndian ? dv.getUint32(1, true) : dv.getUint32(1, false);
-  const wkbType = typeRaw & 0xff; // Mask out Z/M flags
+  const parsed = parseWkbAt(blob, offset);
+  return parsed?.geometry ?? null;
+}
 
-  const readDouble = (off: number) => dv.getFloat64(off, littleEndian);
+type ParsedWkb = { geometry: GeoJSON.Geometry; nextOffset: number };
 
-  if (wkbType === 1) {
-    // Point
-    const x = readDouble(5);
-    const y = readDouble(13);
-    return { type: 'Point', coordinates: [x, y] };
+function parseWkbAt(blob: Uint8Array, offset: number): ParsedWkb | null {
+  if (offset + 5 > blob.length) return null;
+
+  const littleEndian = blob[offset] === 1;
+  const typeRaw = readUint32(blob, offset + 1, littleEndian);
+  const { baseType, hasZ, hasM } = decodeWkbType(typeRaw);
+  const pointStride = 16 + (hasZ ? 8 : 0) + (hasM ? 8 : 0);
+  let cursor = offset + 5;
+
+  const readPoint = (): [number, number] | null => {
+    if (cursor + pointStride > blob.length) return null;
+    const x = readFloat64(blob, cursor, littleEndian);
+    const y = readFloat64(blob, cursor + 8, littleEndian);
+    cursor += pointStride;
+    return [x, y];
+  };
+
+  if (baseType === 1) {
+    const point = readPoint();
+    if (!point) return null;
+    return { geometry: { type: 'Point', coordinates: point }, nextOffset: cursor };
   }
-  if (wkbType === 2) {
-    // LineString
-    const numPts = littleEndian ? dv.getUint32(5, true) : dv.getUint32(5, false);
+
+  if (baseType === 2) {
+    if (cursor + 4 > blob.length) return null;
+    const numPts = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
     const coords: number[][] = [];
-    let p = 9;
     for (let i = 0; i < numPts; i++) {
-      coords.push([readDouble(p), readDouble(p + 8)]);
-      p += 16 + (typeRaw >= 1000 ? 8 : 0); // Skip Z if present
+      const point = readPoint();
+      if (!point) return null;
+      coords.push(point);
     }
-    return { type: 'LineString', coordinates: coords };
+    return { geometry: { type: 'LineString', coordinates: coords }, nextOffset: cursor };
   }
-  if (wkbType === 3) {
-    // Polygon
-    const numRings = littleEndian ? dv.getUint32(5, true) : dv.getUint32(5, false);
+
+  if (baseType === 3) {
+    if (cursor + 4 > blob.length) return null;
+    const numRings = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
     const rings: number[][][] = [];
-    let p = 9;
     for (let r = 0; r < numRings; r++) {
-      const numPts = littleEndian ? dv.getUint32(p, true) : dv.getUint32(p, false);
-      p += 4;
+      if (cursor + 4 > blob.length) return null;
+      const numPts = readUint32(blob, cursor, littleEndian);
+      cursor += 4;
       const ring: number[][] = [];
       for (let i = 0; i < numPts; i++) {
-        ring.push([readDouble(p), readDouble(p + 8)]);
-        p += 16 + (typeRaw >= 1000 ? 8 : 0);
+        const point = readPoint();
+        if (!point) return null;
+        ring.push(point);
       }
       rings.push(ring);
     }
-    return { type: 'Polygon', coordinates: rings };
+    return { geometry: { type: 'Polygon', coordinates: rings }, nextOffset: cursor };
   }
 
-  // MultiPolygon (6), MultiLineString (5), MultiPoint (4) — simplified fallback
+  if (baseType === 4 || baseType === 5 || baseType === 6) {
+    if (cursor + 4 > blob.length) return null;
+    const numGeoms = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
+
+    if (baseType === 4) {
+      const coords: number[][] = [];
+      for (let i = 0; i < numGeoms; i++) {
+        const parsed = parseWkbAt(blob, cursor);
+        if (!parsed || parsed.geometry.type !== 'Point') return null;
+        coords.push(parsed.geometry.coordinates as number[]);
+        cursor = parsed.nextOffset;
+      }
+      return { geometry: { type: 'MultiPoint', coordinates: coords }, nextOffset: cursor };
+    }
+
+    if (baseType === 5) {
+      const lines: number[][][] = [];
+      for (let i = 0; i < numGeoms; i++) {
+        const parsed = parseWkbAt(blob, cursor);
+        if (!parsed || parsed.geometry.type !== 'LineString') return null;
+        lines.push(parsed.geometry.coordinates as number[][]);
+        cursor = parsed.nextOffset;
+      }
+      return { geometry: { type: 'MultiLineString', coordinates: lines }, nextOffset: cursor };
+    }
+
+    const polygons: number[][][][] = [];
+    for (let i = 0; i < numGeoms; i++) {
+      const parsed = parseWkbAt(blob, cursor);
+      if (!parsed || parsed.geometry.type !== 'Polygon') return null;
+      polygons.push(parsed.geometry.coordinates as number[][][]);
+      cursor = parsed.nextOffset;
+    }
+    return { geometry: { type: 'MultiPolygon', coordinates: polygons }, nextOffset: cursor };
+  }
+
   return null;
+}
+
+function decodeWkbType(raw: number): { baseType: number; hasZ: boolean; hasM: boolean } {
+  const hasZFlag = (raw & 0x80000000) !== 0;
+  const hasMFlag = (raw & 0x40000000) !== 0;
+  let base = raw & 0x0fffffff;
+
+  let hasZ = hasZFlag;
+  let hasM = hasMFlag;
+
+  if (base >= 3000) {
+    hasZ = true;
+    hasM = true;
+    base -= 3000;
+  } else if (base >= 2000) {
+    hasM = true;
+    base -= 2000;
+  } else if (base >= 1000) {
+    hasZ = true;
+    base -= 1000;
+  }
+
+  return { baseType: base, hasZ, hasM };
+}
+
+function readUint32(blob: Uint8Array, offset: number, littleEndian: boolean): number {
+  const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+  return view.getUint32(offset, littleEndian);
+}
+
+function readFloat64(blob: Uint8Array, offset: number, littleEndian: boolean): number {
+  const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+  return view.getFloat64(offset, littleEndian);
 }

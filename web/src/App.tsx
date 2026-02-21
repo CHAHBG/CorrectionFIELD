@@ -3,7 +3,7 @@
 // =====================================================
 
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { MapCanvas } from '@/modules/map/components/MapCanvas';
@@ -17,6 +17,7 @@ import { ProjectSettingsPanel } from '@/modules/admin/components/ProjectSettings
 import { MembersManager } from '@/modules/admin/components/MembersManager';
 import { SyncDashboard } from '@/modules/admin/components/SyncDashboard';
 import { ProjectsList } from '@/modules/projects/components/ProjectsList';
+import { useProjects } from '@/modules/projects/hooks/useProjects';
 
 import { useMapStore } from '@/stores/mapStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -396,6 +397,9 @@ function OnlineIndicator() {
 
 // ── Main layout ─────────────────────────────────────
 function MainLayout() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { currentProject, setCurrentProject } = useProjectStore();
+  const { data: projects } = useProjects();
   const { layerPanelOpen, attributeTableOpen, identifiedFeature } = useMapStore();
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -403,6 +407,15 @@ function MainLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
+
+  useEffect(() => {
+    if (!projectId || !projects || projects.length === 0) return;
+
+    const matched = projects.find((p) => p.id === projectId) ?? null;
+    if (matched && currentProject?.id !== matched.id) {
+      setCurrentProject(matched);
+    }
+  }, [projectId, projects, currentProject?.id, setCurrentProject]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden">
