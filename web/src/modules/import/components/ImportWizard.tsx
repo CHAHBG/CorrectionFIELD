@@ -2,7 +2,7 @@
 //  FieldCorrect — Import Wizard (step-by-step data import)
 // =====================================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Input, Spinner } from '@/shared/ui/components';
 import { parseGeoJson, parseCsvGeo, parseGpkg, type ParseResult } from '../parsers';
@@ -378,6 +378,7 @@ function ImportingStep({
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
   const [currentLayer, setCurrentLayer] = useState('');
+  const startedRef = useRef(false);
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -421,6 +422,7 @@ function ImportingStep({
           await featuresApi.bulkInsert(batch);
           importedFeatures += batch.length;
           setProgress(Math.min(100, Math.round((importedFeatures / Math.max(1, totalFeatures)) * 100)));
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       }
 
@@ -433,8 +435,12 @@ function ImportingStep({
 
   // Auto-start import
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     importMutation.mutate();
-  }, [importMutation]);
+    // Intentionally run once to avoid repeated concurrent imports on re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center space-y-4 py-8">
@@ -473,7 +479,15 @@ function ImportingStep({
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>Fermer</Button>
-            <Button onClick={() => importMutation.mutate()}>Réessayer</Button>
+            <Button
+              onClick={() => {
+                setProgress(0);
+                setCurrentLayer('');
+                importMutation.mutate();
+              }}
+            >
+              Réessayer
+            </Button>
           </div>
         </>
       )}
