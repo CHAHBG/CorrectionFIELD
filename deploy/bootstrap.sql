@@ -351,10 +351,40 @@ as $$
   );
 $$;
 
+create or replace function public.is_project_owner(p_project_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.projects p
+    where p.id = p_project_id
+      and p.owner_id = auth.uid()
+  );
+$$;
+
+create or replace function public.can_manage_project(p_project_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_project_owner(p_project_id)
+      or public.has_project_role(p_project_id, array['owner','admin']);
+$$;
+
 revoke all on function public.is_project_member(uuid) from public;
 revoke all on function public.has_project_role(uuid, text[]) from public;
+revoke all on function public.is_project_owner(uuid) from public;
+revoke all on function public.can_manage_project(uuid) from public;
 grant execute on function public.is_project_member(uuid) to authenticated;
 grant execute on function public.has_project_role(uuid, text[]) to authenticated;
+grant execute on function public.is_project_owner(uuid) to authenticated;
+grant execute on function public.can_manage_project(uuid) to authenticated;
 
 -- Profiles: users see all profiles, edit only their own
 create policy "profiles_select" on public.profiles
@@ -365,27 +395,31 @@ create policy "profiles_update" on public.profiles
 -- Projects: members see their projects, owners/admins manage
 create policy "projects_select" on public.projects
   for select to authenticated
-  using (id in (select project_id from public.project_members where user_id = auth.uid()));
+  using (
+    owner_id = auth.uid()
+    or public.is_project_member(id)
+  );
 
 create policy "projects_insert" on public.projects
-  for insert to authenticated with check (true);
+  for insert to authenticated with check (owner_id = auth.uid());
 
 create policy "projects_update" on public.projects
   for update to authenticated
-  using (id in (
-    select project_id from public.project_members
-    where user_id = auth.uid() and role in ('owner','admin')
-  ));
+  using (public.can_manage_project(id))
+  with check (public.can_manage_project(id));
 
 -- Project members: see members of your projects
 create policy "members_select" on public.project_members
   for select to authenticated
-  using (public.is_project_member(project_id));
+  using (
+    public.is_project_member(project_id)
+    or public.is_project_owner(project_id)
+  );
 
 create policy "members_manage" on public.project_members
   for all to authenticated
-  using (public.has_project_role(project_id, array['owner','admin']))
-  with check (public.has_project_role(project_id, array['owner','admin']));
+  using (public.can_manage_project(project_id))
+  with check (public.can_manage_project(project_id));
 
 -- Layers: visible to project members
 create policy "layers_select" on public.layers
