@@ -3,8 +3,10 @@
 // =====================================================
 
 import { X, Lock, Unlock, Check, XCircle, Clock, User, MapPin, FileText } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { correctionsApi } from '@/infra/api/corrections.api';
+import { featuresApi } from '@/infra/api/features.api';
+import { supabase } from '@/infra/supabase';
 import { useMapStore } from '@/stores/mapStore';
 import { Button, Badge, Spinner } from '@/shared/ui/components';
 import { cn } from '@/shared/ui/cn';
@@ -163,35 +165,127 @@ function CorrectionEntry({ correction }: { correction: Correction }) {
 }
 
 function ActionBar({ feature }: { feature: AppFeature }) {
+  const qc = useQueryClient();
+  const setIdentified = useMapStore((s) => s.openIdentifyPanel);
+
+  const refreshFeature = async () => {
+    const updated = await featuresApi.getById(feature.id);
+    if (updated) setIdentified(updated);
+    qc.invalidateQueries({ queryKey: ['features'] });
+    qc.invalidateQueries({ queryKey: ['corrections', feature.id] });
+  };
+
+  const lockMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+      const ok = await featuresApi.lockFeature(feature.id, user.id);
+      if (!ok) throw new Error('Impossible de verrouiller (déjà verrouillée ?)');
+    },
+    onSuccess: refreshFeature,
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: () => featuresApi.unlockFeature(feature.id),
+    onSuccess: refreshFeature,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+      await correctionsApi.submit({
+        featureId: feature.id,
+        layerId: feature.layerId,
+        userId: user.id,
+        propsPatch: feature.props,
+        notes: 'Correction soumise',
+      });
+      await featuresApi.updateStatus(feature.id, 'corrected');
+    },
+    onSuccess: refreshFeature,
+  });
+
+  const validateMutation = useMutation({
+    mutationFn: async () => {
+      await featuresApi.updateStatus(feature.id, 'validated');
+    },
+    onSuccess: refreshFeature,
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async () => {
+      await featuresApi.updateStatus(feature.id, 'pending');
+    },
+    onSuccess: refreshFeature,
+  });
+
+  const busy = lockMutation.isPending || unlockMutation.isPending ||
+    submitMutation.isPending || validateMutation.isPending || rejectMutation.isPending;
+
   return (
-    <div className="flex gap-2 border-t px-3 py-2 bg-gray-50 shrink-0">
-      {feature.status === 'pending' && (
-        <>
-          <Button size="sm" className="flex-1">
+    <div className="flex flex-col gap-1 border-t px-3 py-2 bg-gray-50 shrink-0">
+      {(lockMutation.error || unlockMutation.error || submitMutation.error ||
+        validateMutation.error || rejectMutation.error) && (
+        <p className="text-xs text-red-600 mb-1">
+          {(lockMutation.error ?? unlockMutation.error ?? submitMutation.error ??
+            validateMutation.error ?? rejectMutation.error)?.message}
+        </p>
+      )}
+      <div className="flex gap-2">
+        {feature.status === 'pending' && (
+          <Button
+            size="sm"
+            className="flex-1"
+            disabled={busy}
+            onClick={() => lockMutation.mutate()}
+          >
             <Lock size={12} className="mr-1" /> Verrouiller & Corriger
           </Button>
-        </>
-      )}
-      {feature.status === 'locked' && (
-        <>
-          <Button variant="secondary" size="sm" className="flex-1">
-            <Unlock size={12} className="mr-1" /> Déverrouiller
-          </Button>
-          <Button size="sm" className="flex-1">
-            <Check size={12} className="mr-1" /> Soumettre
-          </Button>
-        </>
-      )}
-      {feature.status === 'corrected' && (
-        <>
-          <Button variant="secondary" size="sm" className="flex-1">
-            <XCircle size={12} className="mr-1" /> Rejeter
-          </Button>
-          <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700">
-            <Check size={12} className="mr-1" /> Valider
-          </Button>
-        </>
-      )}
+        )}
+        {feature.status === 'locked' && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              disabled={busy}
+              onClick={() => unlockMutation.mutate()}
+            >
+              <Unlock size={12} className="mr-1" /> Déverrouiller
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={busy}
+              onClick={() => submitMutation.mutate()}
+            >
+              <Check size={12} className="mr-1" /> Soumettre
+            </Button>
+          </>
+        )}
+        {feature.status === 'corrected' && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              disabled={busy}
+              onClick={() => rejectMutation.mutate()}
+            >
+              <XCircle size={12} className="mr-1" /> Rejeter
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              disabled={busy}
+              onClick={() => validateMutation.mutate()}
+            >
+              <Check size={12} className="mr-1" /> Valider
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

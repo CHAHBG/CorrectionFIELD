@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, CommonActions } from '@react-navigation/native';
@@ -40,7 +41,7 @@ export default function LoginScreen() {
   useEffect(() => {
     if (isAuthenticated) {
       nav.dispatch(
-        CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] }),
+        CommonActions.reset({ index: 0, routes: [{ name: 'Projects' }] }),
       );
     }
   }, [isAuthenticated, nav]);
@@ -62,9 +63,10 @@ export default function LoginScreen() {
   };
 
   const handleSkip = () => {
-    // Allow offline mode without auth
+    // Allow offline mode without auth — go to Projects
+    useProjectStore.getState().skipAuth();
     nav.dispatch(
-      CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] }),
+      CommonActions.reset({ index: 0, routes: [{ name: 'Projects' }] }),
     );
   };
 
@@ -121,6 +123,16 @@ export default function LoginScreen() {
             icon="wifi-off"
             style={{ marginTop: spacing.sm }}
           />
+
+          <TouchableOpacity
+            onPress={() => nav.navigate('Register')}
+            style={styles.linkRow}
+          >
+            <Text style={styles.linkText}>
+              Pas encore de compte ?{' '}
+              <Text style={styles.linkBold}>S'inscrire</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -177,5 +189,18 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginLeft: 8,
     flex: 1,
+  },
+  linkRow: {
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  linkText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  linkBold: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

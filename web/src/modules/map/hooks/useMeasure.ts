@@ -1,15 +1,15 @@
 // =====================================================
-//  FieldCorrect — Measure hook (distance/area)
+//  FieldCorrect — Measure hook (reads from mapStore)
 // =====================================================
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import * as turf from '@turf/turf';
-
-type MeasureMode = 'distance' | 'area';
+import { useMapStore } from '@/stores/mapStore';
 
 export function useMeasure() {
-  const [points, setPoints] = useState<[number, number][]>([]);
-  const [mode, setMode] = useState<MeasureMode>('distance');
+  const points = useMapStore((s) => s.measurePoints);
+  const activeTool = useMapStore((s) => s.activeTool);
+  const mode = activeTool === 'measure_area' ? 'area' : 'distance';
 
   const result = useMemo(() => {
     if (mode === 'distance' && points.length >= 2) {
@@ -25,7 +25,6 @@ export function useMeasure() {
     return null;
   }, [points, mode]);
 
-  // Segment distances for showing intermediate measurements
   const segments = useMemo(() => {
     if (points.length < 2) return [];
     return points.slice(1).map((pt, i) => {
@@ -35,15 +34,7 @@ export function useMeasure() {
     });
   }, [points]);
 
-  const addPoint = useCallback((lngLat: { lng: number; lat: number }) => {
-    setPoints((pts) => [...pts, [lngLat.lng, lngLat.lat]]);
-  }, []);
-
-  const reset = useCallback(() => {
-    setPoints([]);
-  }, []);
-
-  return { points, result, segments, addPoint, setMode, mode, reset };
+  return { points, result, segments, mode };
 }
 
 function formatDistance(meters: number): string {

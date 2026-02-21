@@ -49,16 +49,7 @@ export function Toolbar() {
       <ToolGroup tools={TOOLS.filter((t) => t.group === 'measure')} activeTool={activeTool} setTool={setTool} />
       <Divider />
       {/* Undo / Redo */}
-      <Tooltip content="Annuler (Ctrl+Z)">
-        <Button variant="ghost" size="icon" className="h-7 w-7">
-          <Undo2 size={14} />
-        </Button>
-      </Tooltip>
-      <Tooltip content="Rétablir (Ctrl+Y)">
-        <Button variant="ghost" size="icon" className="h-7 w-7">
-          <Redo2 size={14} />
-        </Button>
-      </Tooltip>
+      <UndoRedoButtons />
     </div>
   );
 }
@@ -89,6 +80,40 @@ function ToolGroup({
           </Button>
         </Tooltip>
       ))}
+    </>
+  );
+}
+
+function UndoRedoButtons() {
+  const undoLen = useMapStore((s) => s.undoStack.length);
+  const redoLen = useMapStore((s) => s.redoStack.length);
+  const undo = useMapStore((s) => s.undo);
+  const redo = useMapStore((s) => s.redo);
+
+  return (
+    <>
+      <Tooltip content="Annuler (Ctrl+Z)">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          disabled={undoLen === 0}
+          onClick={undo}
+        >
+          <Undo2 size={14} />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Rétablir (Ctrl+Y)">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          disabled={redoLen === 0}
+          onClick={redo}
+        >
+          <Redo2 size={14} />
+        </Button>
+      </Tooltip>
     </>
   );
 }

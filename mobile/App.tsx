@@ -16,8 +16,6 @@ import { useLayerStore } from './src/stores/layerStore';
 
 function App(): React.JSX.Element {
   const [ready, setReady] = useState(false);
-  const initAuth = useProjectStore((s) => s.init);
-  const loadLayers = useLayerStore((s) => s.loadLayers);
 
   useEffect(() => {
     (async () => {
@@ -26,13 +24,17 @@ function App(): React.JSX.Element {
         await localDB.init();
 
         // 2. Initialize auth state
-        await initAuth();
+        await useProjectStore.getState().init();
 
         // 3. Load layers into store
-        await loadLayers();
+        await useLayerStore.getState().loadLayers();
 
-        // 4. Start background sync
-        syncEngine.start();
+        // 4. Start background sync (non-blocking)
+        try {
+          syncEngine.start();
+        } catch (syncErr) {
+          console.warn('[App] sync start failed (non-fatal)', syncErr);
+        }
       } catch (e) {
         console.error('[App] startup error', e);
       } finally {
@@ -43,7 +45,7 @@ function App(): React.JSX.Element {
     return () => {
       syncEngine.stop();
     };
-  }, [initAuth, loadLayers]);
+  }, []);
 
   if (!ready) {
     return (

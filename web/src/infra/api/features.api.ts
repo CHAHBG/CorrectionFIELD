@@ -104,14 +104,21 @@ export const featuresApi = {
   },
 
   async bulkInsert(features: Partial<AppFeature>[]): Promise<void> {
-    const rows = features.map((f) => ({
-      id: f.id,
-      layer_id: f.layerId,
-      geom: f.geom ? geometryToEwkt(f.geom as GeoJSON.Geometry) : null,
-      props: f.props ?? {},
-      status: f.status ?? 'pending',
-      source_file: f.sourceFile,
-    }));
+    const rows = features.map((f) => {
+      const row: Record<string, unknown> = {
+        layer_id: f.layerId,
+        geom: f.geom ? geometryToEwkt(f.geom as GeoJSON.Geometry) : null,
+        props: f.props ?? {},
+        status: f.status ?? 'pending',
+      };
+      // Only include optional fields when they have real values.
+      // Including undefined keys causes Supabase JS to list them in
+      // the ?columns= query param while JSON.stringify omits them,
+      // resulting in PostgREST returning 400.
+      if (f.id) row.id = f.id;
+      if (f.sourceFile) row.source_file = f.sourceFile;
+      return row;
+    });
 
     const { error } = await supabase.from('features').insert(rows);
     if (error) throw error;

@@ -63,6 +63,14 @@ class SyncEngine {
       return;
     }
 
+    // Guard: skip if DB not yet initialized
+    try {
+      localDB.getDB();
+    } catch {
+      console.warn('[Sync] DB not initialized yet, skipping sync run');
+      return;
+    }
+
     // Check connectivity
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
@@ -89,7 +97,7 @@ class SyncEngine {
         try {
           const table = op.entity_type === 'feature' ? 'features'
             : op.entity_type === 'correction' ? 'corrections'
-            : 'layers';
+              : 'layers';
 
           if (op.op === 'INSERT') {
             const { error } = await supabase.from(table).insert(op.payload);
@@ -100,7 +108,7 @@ class SyncEngine {
                 const { error: upsertErr } = await supabase
                   .from(table)
                   .upsert(op.payload);
-                if (upsertErr) {throw upsertErr;}
+                if (upsertErr) { throw upsertErr; }
               } else {
                 throw error;
               }
@@ -204,7 +212,7 @@ class SyncEngine {
         }
 
         offset += features.length;
-        if (features.length < pageSize) {hasMore = false;}
+        if (features.length < pageSize) { hasMore = false; }
       }
 
       // ═══ 3. PULL corrections (new) ═══

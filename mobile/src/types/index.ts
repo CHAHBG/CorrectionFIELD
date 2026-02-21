@@ -159,20 +159,17 @@ export type MapTool =
 // ── Navigation types ───────────────────────────────
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Projects: undefined;
   Main: undefined;
   CorrectionForm: { featureId: string; layerId: string };
   Settings: undefined;
   Sync: undefined;
-  LayerConfig: { layerId: string };
-  ImportWizard: undefined;
   ConflictMerge: {
     featureId: string;
     localData: { props: Record<string, any>; geom: any; layer_id: string; status: string };
     serverData: { props: Record<string, any>; geom: any; layer_id: string; status: string };
   };
-  ProjectMembers: undefined;
-  ZoneAssign: undefined;
 };
 
 export type MainTabParamList = {

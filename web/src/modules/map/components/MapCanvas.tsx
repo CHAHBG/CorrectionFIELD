@@ -18,6 +18,8 @@ import { LayerRenderer, getInteractiveLayerIds } from './LayerRenderer';
 import { Toolbar } from './Toolbar';
 import { SearchBar } from './SearchBar';
 import { MeasureOverlay } from './MeasureOverlay';
+import { DrawingOverlay } from './DrawingOverlay';
+import { GeofenceOverlay } from './GeofenceOverlay';
 import { useMapEvents } from '@/modules/map/hooks/useMapEvents';
 
 // Free tile source — OpenStreetMap raster tiles as fallback
@@ -49,14 +51,25 @@ export function MapCanvas() {
   const setViewport = useMapStore((s) => s.setViewport);
   const layers = useLayerStore((s) => s.layers);
 
+  const activeTool = useMapStore((s) => s.activeTool);
+
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Cursor changes based on active tool
+  const cursor = useMemo(() => {
+    if (activeTool === 'draw_point' || activeTool === 'draw_line' || activeTool === 'draw_polygon') return 'crosshair';
+    if (activeTool === 'measure_distance' || activeTool === 'measure_area') return 'crosshair';
+    if (activeTool === 'pan') return 'grab';
+    if (activeTool === 'edit') return 'default';
+    return '';
+  }, [activeTool]);
 
   const interactiveLayerIds = useMemo(
     () => getInteractiveLayerIds(layers),
     [layers]
   );
 
-  const { handleClick, handleHover } = useMapEvents(mapRef, interactiveLayerIds);
+  const { handleClick, handleDblClick, handleHover } = useMapEvents(mapRef, interactiveLayerIds);
 
   const onMove = useCallback(
     (evt: ViewStateChangeEvent) => {
@@ -92,12 +105,14 @@ export function MapCanvas() {
         mapStyle={DEFAULT_MAP_STYLE}
         onMove={onMove}
         onClick={handleClick}
+        onDblClick={handleDblClick}
         onMouseMove={(e) => {
           handleHover(e);
           setCoords({ lat: e.lngLat.lat, lng: e.lngLat.lng });
         }}
         interactiveLayerIds={interactiveLayerIds}
         attributionControl={false}
+        cursor={cursor}
         reuseMaps
       >
         {/* Dynamic layers from store */}
@@ -107,6 +122,12 @@ export function MapCanvas() {
 
         {/* Measure overlay */}
         <MeasureOverlay />
+
+        {/* Drawing overlay */}
+        <DrawingOverlay />
+
+        {/* Geofence zone overlay */}
+        <GeofenceOverlay />
 
         {/* Map controls */}
         <NavigationControl position="top-right" showCompass showZoom />

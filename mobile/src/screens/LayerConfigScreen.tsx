@@ -13,11 +13,13 @@ import Slider from '@react-native-community/slider';
 import { RouteProp, useRoute } from '@react-navigation/native';
 
 import { useLayerStore } from '@/stores/layerStore';
-import { RootStackParamList } from '@/types';
 import { Card, Divider } from '@/shared/components';
 import { colors, spacing, typography } from '@/shared/theme';
 
-type Route = RouteProp<RootStackParamList, 'LayerConfig'>;
+// This screen is kept for reference but is not used in the mobile navigator.
+// Project configuration is done via the web interface only.
+type LayerConfigParams = { LayerConfig: { layerId: string } };
+type Route = RouteProp<LayerConfigParams, 'LayerConfig'>;
 
 export default function LayerConfigScreen() {
   const { params } = useRoute<Route>();

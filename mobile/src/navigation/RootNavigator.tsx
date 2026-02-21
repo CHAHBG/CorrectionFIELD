@@ -11,6 +11,7 @@ import { colors, typography } from '@/shared/theme';
 
 // Screens — lazy imports keep the navigator file lean
 import LoginScreen from '@/screens/LoginScreen';
+import RegisterScreen from '@/screens/RegisterScreen';
 import ProjectsScreen from '@/screens/ProjectsScreen';
 import MapScreen from '@/screens/MapScreen';
 import LayersScreen from '@/screens/LayersScreen';
@@ -19,11 +20,7 @@ import CorrectionFormScreen from '@/screens/CorrectionFormScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import SyncScreen from '@/screens/SyncScreen';
-import LayerConfigScreen from '@/screens/LayerConfigScreen';
-import ImportWizardScreen from '@/screens/ImportWizardScreen';
 import ConflictMergeScreen from '@/screens/ConflictMergeScreen';
-import ProjectMembersScreen from '@/screens/ProjectMembersScreen';
-import ZoneAssignScreen from '@/screens/ZoneAssignScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -118,6 +115,11 @@ export default function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="Register"
+        component={RegisterScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="Projects"
         component={ProjectsScreen}
         options={{ headerShown: false }}
@@ -143,29 +145,9 @@ export default function RootNavigator() {
         options={{ title: 'Synchronisation' }}
       />
       <Stack.Screen
-        name="LayerConfig"
-        component={LayerConfigScreen}
-        options={{ title: 'Configuration couche' }}
-      />
-      <Stack.Screen
-        name="ImportWizard"
-        component={ImportWizardScreen}
-        options={{ title: 'Importer une couche' }}
-      />
-      <Stack.Screen
         name="ConflictMerge"
         component={ConflictMergeScreen}
         options={{ title: 'Résolution de conflit' }}
-      />
-      <Stack.Screen
-        name="ProjectMembers"
-        component={ProjectMembersScreen}
-        options={{ title: 'Membres du projet' }}
-      />
-      <Stack.Screen
-        name="ZoneAssign"
-        component={ZoneAssignScreen}
-        options={{ title: 'Zones d\'enquête' }}
       />
     </Stack.Navigator>
   );
