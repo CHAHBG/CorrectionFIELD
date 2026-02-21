@@ -11,7 +11,6 @@ import {
   StyleSheet,
   RefreshControl,
   TextInput,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,7 +19,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useProjectStore } from '@/stores/projectStore';
 import { supabase } from '@/infra/supabase';
 import { colors, typography, spacing, radius } from '@/shared/theme';
-import { Button, EmptyState, Spinner } from '@/shared/components';
+import { EmptyState, Spinner } from '@/shared/components';
 import type { Project, RootStackParamList } from '@/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Projects'>;
@@ -33,9 +32,13 @@ export default function ProjectsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
 
   const fetchProjects = useCallback(async () => {
+    // Skip Supabase call for offline user
+    if (!user || user.id === 'offline') {
+      setProjects([]);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -43,10 +46,10 @@ export default function ProjectsScreen() {
           *,
           project_members!inner(user_id, role)
         `)
-        .eq('project_members.user_id', user?.id ?? '')
+        .eq('project_members.user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {throw error;}
+      if (error) { throw error; }
       setProjects(
         (data ?? []).map((p: any) => ({
           id: p.id,
@@ -61,7 +64,7 @@ export default function ProjectsScreen() {
     } catch (e) {
       console.error('[ProjectsScreen] fetch', e);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     setLoading(true);
@@ -98,13 +101,6 @@ export default function ProjectsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Mes Projets</Text>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setShowCreate(true)}
-        >
-          <Icon name="plus" size={20} color={colors.white} />
-          <Text style={styles.createBtnText}>Nouveau</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -124,7 +120,7 @@ export default function ProjectsScreen() {
         <EmptyState
           icon="folder-open-outline"
           title="Aucun projet"
-          subtitle="Créez un projet ou demandez une invitation"
+          subtitle={user?.id === 'offline' ? 'Connectez-vous pour accéder à vos projets' : 'Demandez une invitation à un projet existant'}
         />
       ) : (
         <FlatList
@@ -159,133 +155,6 @@ export default function ProjectsScreen() {
           )}
         />
       )}
-
-      {/* Create Project Modal */}
-      {showCreate && (
-        <CreateProjectModal
-          onClose={() => setShowCreate(false)}
-          onCreated={(p) => {
-            setProjects((prev) => [p, ...prev]);
-            setShowCreate(false);
-          }}
-        />
-      )}
-    </View>
-  );
-}
-
-/* ─── Create Project Modal ─── */
-
-function CreateProjectModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (p: Project) => void;
-}) {
-  const { user } = useProjectStore();
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [description, setDescription] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const autoSlug = (text: string) =>
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-
-  const handleCreate = async () => {
-    if (!name.trim()) {
-      Alert.alert('Erreur', 'Le nom du projet est requis');
-      return;
-    }
-    setSaving(true);
-    try {
-      const finalSlug = slug.trim() || autoSlug(name);
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          name: name.trim(),
-          slug: finalSlug,
-          description: description.trim() || null,
-          owner_id: user?.id,
-          settings: { default_crs: 'EPSG:4326', auto_lock: true, require_validation: false, offline_enabled: true },
-        })
-        .select()
-        .single();
-
-      if (error) {throw error;}
-
-      // Add self as admin member
-      await supabase.from('project_members').insert({
-        project_id: data.id,
-        user_id: user?.id,
-        role: 'admin',
-      });
-
-      onCreated({
-        id: data.id,
-        slug: data.slug,
-        name: data.name,
-        description: data.description,
-        settings: data.settings ?? {},
-        created_at: data.created_at,
-        updated_at: data.updated_at ?? data.created_at,
-      });
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Impossible de créer le projet');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modal}>
-        <Text style={styles.modalTitle}>Nouveau Projet</Text>
-
-        <Text style={styles.label}>Nom *</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={(t) => {
-            setName(t);
-            if (!slug) {setSlug(autoSlug(t));}
-          }}
-          placeholder="Ex: PROCASEF Boundou"
-          placeholderTextColor={colors.textMuted}
-        />
-
-        <Text style={styles.label}>Identifiant (slug)</Text>
-        <TextInput
-          style={styles.input}
-          value={slug || autoSlug(name)}
-          onChangeText={setSlug}
-          placeholder="procasef-boundou"
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={[styles.input, { height: 80 }]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Description du projet…"
-          placeholderTextColor={colors.textMuted}
-          multiline
-        />
-
-        <View style={styles.modalActions}>
-          <Button title="Annuler" variant="secondary" onPress={onClose} />
-          <Button
-            title={saving ? 'Création…' : 'Créer'}
-            onPress={handleCreate}
-            disabled={saving}
-          />
-        </View>
-      </View>
     </View>
   );
 }
@@ -304,16 +173,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   title: { ...typography.h1, color: colors.textPrimary },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    gap: 4,
-  },
-  createBtnText: { color: colors.white, ...typography.body, fontWeight: '600' },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,35 +209,4 @@ const styles = StyleSheet.create({
   projectName: { ...typography.h3, color: colors.textPrimary },
   projectDesc: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   projectMeta: { ...typography.caption, color: colors.textMuted, marginTop: 4 },
-  // Modal
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  modal: {
-    width: '90%',
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-  },
-  modalTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.md },
-  label: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
 });

@@ -2,7 +2,7 @@
 //  FieldCorrect Mobile — Settings Screen
 // =====================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ export default function SettingsScreen() {
   }, []);
 
   /* ── Import GeoPackage ── */
-  const handleImportGpkg = useCallback(async () => {
+  const handleImportGpkg = async () => {
     try {
       // Use file picker to select .gpkg
       const result = await launchImageLibrary({
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
     } catch (e: any) {
       Alert.alert('Erreur', e.message ?? 'Erreur lors de l\'import');
     }
-  }, [loadLayers]);
+  };
 
   /* ── Clear local data ── */
   const handleClearData = () => {
@@ -152,18 +152,6 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg }}>
-      {/* Import */}
-      <Card style={{ marginBottom: spacing.md }}>
-        <Text style={typography.bodyBold}>Import de données</Text>
-        <Divider />
-        <Button
-          title="Importer un GeoPackage"
-          icon="database-import"
-          variant="secondary"
-          onPress={handleImportGpkg}
-          style={{ marginTop: spacing.sm }}
-        />
-      </Card>
 
       {/* Sync preferences */}
       <Card style={{ marginBottom: spacing.md }}>
@@ -193,6 +181,12 @@ export default function SettingsScreen() {
           <Text style={typography.body}>Base de données locale</Text>
           <Text style={[typography.bodyBold, { color: colors.textSecondary }]}>{dbSize}</Text>
         </View>
+        <Button
+          title="Importer GeoPackage"
+          icon="database-import"
+          onPress={handleImportGpkg}
+          style={{ marginTop: spacing.sm }}
+        />
       </Card>
 
       {/* Danger zone */}

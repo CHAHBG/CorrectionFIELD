@@ -9,21 +9,15 @@ import {
   FlatList,
   Switch,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useLayerStore } from '@/stores/layerStore';
-import { Layer, RootStackParamList } from '@/types';
+import { Layer } from '@/types';
 import { Card, EmptyState, Spinner } from '@/shared/components';
 import { colors, spacing, typography } from '@/shared/theme';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-
 export default function LayersScreen() {
-  const nav = useNavigation<Nav>();
   const { layers, loading, loadLayers, toggleVisibility } = useLayerStore();
 
   useEffect(() => {
@@ -59,14 +53,6 @@ export default function LayersScreen() {
           thumbColor={item.visible ? colors.primary : colors.textMuted}
         />
       </View>
-
-      <TouchableOpacity
-        style={styles.configBtn}
-        onPress={() => nav.navigate('LayerConfig', { layerId: item.id })}
-      >
-        <Icon name="cog-outline" size={16} color={colors.textSecondary} />
-        <Text style={styles.configLabel}>Configurer</Text>
-      </TouchableOpacity>
     </Card>
   );
 
