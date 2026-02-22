@@ -61,20 +61,31 @@ function compileRuleBased(style: LayerStyle): MapLibrePaint {
   const rb = style.ruleBased!;
   const { field, rules, defaultStyle } = rb;
 
-  // MapLibre "match" expression: ['match', ['get', field], v1, c1, v2, c2, default]
-  const fillMatch: unknown[] = [
-    'match',
-    ['get', field],
-    ...rules.flatMap((r) => [r.value, r.style.fillColor ?? defaultStyle.fillColor]),
-    defaultStyle.fillColor,
-  ];
+  const defaultFill = defaultStyle.fillColor ?? '#3388ff';
+  const defaultStroke = defaultStyle.strokeColor ?? '#3388ff';
 
-  const strokeMatch: unknown[] = [
-    'match',
-    ['get', field],
-    ...rules.flatMap((r) => [r.value, r.style.strokeColor ?? defaultStyle.strokeColor]),
-    defaultStyle.strokeColor,
-  ];
+  // MapLibre 'match' requires at least one label/output pair + fallback.
+  // If there are no rules, use constant colors instead of an invalid expression.
+  const hasRules = Array.isArray(rules) && rules.length > 0;
+
+  // MapLibre "match" expression: ['match', ['get', field], v1, c1, v2, c2, default]
+  const fillMatch: unknown = hasRules
+    ? [
+        'match',
+        ['get', field],
+        ...rules.flatMap((r) => [r.value, r.style.fillColor ?? defaultFill]),
+        defaultFill,
+      ]
+    : defaultFill;
+
+  const strokeMatch: unknown = hasRules
+    ? [
+        'match',
+        ['get', field],
+        ...rules.flatMap((r) => [r.value, r.style.strokeColor ?? defaultStroke]),
+        defaultStroke,
+      ]
+    : defaultStroke;
 
   return {
     fill: {
