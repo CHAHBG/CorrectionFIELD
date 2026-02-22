@@ -2,8 +2,8 @@
 //  FieldCorrect — Import Wizard (step-by-step data import)
 // =====================================================
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button, Input, Spinner } from '@/shared/ui/components';
 import { parseGeoJson, parseCsvGeo, parseGpkg, type ParseResult } from '../parsers';
 import { layersApi } from '@/infra/api/layers.api';
@@ -379,7 +379,9 @@ function ImportingStep({
   const [progress, setProgress] = useState(0);
   const [currentLayer, setCurrentLayer] = useState('');
   const [currentStep, setCurrentStep] = useState('Préparation de l\'import…');
-  const startedRef = useRef(false);
+  const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -398,83 +400,97 @@ function ImportingStep({
     }
   };
 
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentProject) throw new Error('Aucun projet actif');
+  const runImport = useCallback(async () => {
+    if (!currentProject) throw new Error('Aucun projet actif');
 
-      const BATCH_SIZE = 50;
-      const REQUEST_TIMEOUT_MS = 45000;
-      const totalFeatures = results.reduce((acc, result) => acc + result.features.length, 0);
-      let importedFeatures = 0;
+    const BATCH_SIZE = 50;
+    const REQUEST_TIMEOUT_MS = 45000;
+    const totalFeatures = results.reduce((acc, result) => acc + result.features.length, 0);
+    let importedFeatures = 0;
 
-      if (totalFeatures === 0) {
-        throw new Error('Aucune feature détectée dans les fichiers sélectionnés');
-      }
+    if (totalFeatures === 0) {
+      throw new Error('Aucune feature détectée dans les fichiers sélectionnés');
+    }
 
-      for (let layerIndex = 0; layerIndex < results.length; layerIndex++) {
-        const result = results[layerIndex];
-        const layerName = layerNames[layerIndex] ?? result.name;
-        setCurrentLayer(layerName);
-        setCurrentStep(`Création de la couche ${layerIndex + 1}/${results.length}…`);
+    for (let layerIndex = 0; layerIndex < results.length; layerIndex++) {
+      const result = results[layerIndex];
+      const layerName = layerNames[layerIndex] ?? result.name;
+      setCurrentLayer(layerName);
+      setCurrentStep(`Création de la couche ${layerIndex + 1}/${results.length}…`);
 
-        const layer = await withTimeout(layersApi.create({
-          projectId: currentProject.id,
-          name: layerName,
-          geometryType: result.geometryType,
-          sourceCrs: result.crs ?? 'EPSG:4326',
-          fields: result.fields,
-          style: {
-            mode: 'simple',
-            simple: {
-              fillColor: '#3b82f6',
-              fillOpacity: 0.4,
-              strokeColor: '#1d4ed8',
-              strokeWidth: 1.5,
-              strokeOpacity: 1,
-            },
+      const layer = await withTimeout(layersApi.create({
+        projectId: currentProject.id,
+        name: layerName,
+        geometryType: result.geometryType,
+        sourceCrs: result.crs ?? 'EPSG:4326',
+        fields: result.fields,
+        style: {
+          mode: 'simple',
+          simple: {
+            fillColor: '#3b82f6',
+            fillOpacity: 0.4,
+            strokeColor: '#1d4ed8',
+            strokeWidth: 1.5,
+            strokeOpacity: 1,
           },
-        }), REQUEST_TIMEOUT_MS, `Création de couche (${layerName})`);
+        },
+      }), REQUEST_TIMEOUT_MS, `Création de couche (${layerName})`);
 
-        setProgress(Math.max(1, Math.round((importedFeatures / totalFeatures) * 100)));
+      setProgress(Math.max(1, Math.round((importedFeatures / totalFeatures) * 100)));
 
-        for (let i = 0; i < result.features.length; i += BATCH_SIZE) {
-          setCurrentStep(
-            `Import batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(result.features.length / BATCH_SIZE)} (${layerIndex + 1}/${results.length})`
-          );
+      for (let i = 0; i < result.features.length; i += BATCH_SIZE) {
+        setCurrentStep(
+          `Import batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(result.features.length / BATCH_SIZE)} (${layerIndex + 1}/${results.length})`
+        );
 
-          const batch = result.features.slice(i, i + BATCH_SIZE).map((f) => ({
-            layerId: layer.id,
-            geom: f.geometry,
-            props: (f.properties ?? {}) as Record<string, unknown>,
-            status: 'draft' as FeatureStatus,
-          }));
+        const batch = result.features.slice(i, i + BATCH_SIZE).map((f) => ({
+          layerId: layer.id,
+          geom: f.geometry,
+          props: (f.properties ?? {}) as Record<string, unknown>,
+          status: 'draft' as FeatureStatus,
+        }));
 
-          await withTimeout(featuresApi.bulkInsert(batch), REQUEST_TIMEOUT_MS, `Import features (${layerName})`);
-          importedFeatures += batch.length;
-          setProgress(Math.min(100, Math.round((importedFeatures / Math.max(1, totalFeatures)) * 100)));
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
+        await withTimeout(featuresApi.bulkInsert(batch), REQUEST_TIMEOUT_MS, `Import features (${layerName})`);
+        importedFeatures += batch.length;
+        setProgress(Math.min(100, Math.round((importedFeatures / Math.max(1, totalFeatures)) * 100)));
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
+    }
 
-      return { layers: results.length, features: totalFeatures };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['layers'] });
-    },
-  });
+    setCurrentStep('Finalisation…');
+    await Promise.race([
+      queryClient.invalidateQueries({ queryKey: ['layers'] }),
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ]);
+  }, [currentProject, layerNames, queryClient, results]);
 
-  // Auto-start import
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    importMutation.mutate();
-    // Intentionally run once to avoid repeated concurrent imports on re-render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let cancelled = false;
+
+    setStatus('pending');
+    setErrorMessage(null);
+    setProgress(0);
+    setCurrentLayer('');
+    setCurrentStep('Préparation de l\'import…');
+
+    runImport()
+      .then(() => {
+        if (!cancelled) setStatus('success');
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setStatus('error');
+        setErrorMessage(error instanceof Error ? error.message : "Erreur lors de l'import");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt, runImport]);
 
   return (
     <div className="flex flex-col items-center justify-center space-y-4 py-8">
-      {importMutation.isPending && (
+      {status === 'pending' && (
         <>
           <Spinner />
           <p className="text-sm text-gray-600">Import en cours… {progress}%</p>
@@ -489,7 +505,7 @@ function ImportingStep({
         </>
       )}
 
-      {importMutation.isSuccess && (
+      {status === 'success' && (
         <>
           <p className="text-4xl">✅</p>
           <p className="text-sm text-gray-600">
@@ -500,21 +516,15 @@ function ImportingStep({
         </>
       )}
 
-      {importMutation.isError && (
+      {status === 'error' && (
         <>
           <p className="text-4xl">❌</p>
-          <p className="text-sm text-red-600">
-            {importMutation.error instanceof Error
-              ? importMutation.error.message
-              : "Erreur lors de l'import"}
-          </p>
+          <p className="text-sm text-red-600">{errorMessage ?? "Erreur lors de l'import"}</p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose}>Fermer</Button>
             <Button
               onClick={() => {
-                setProgress(0);
-                setCurrentLayer('');
-                importMutation.mutate();
+                setAttempt((value) => value + 1);
               }}
             >
               Réessayer
