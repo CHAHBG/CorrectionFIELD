@@ -18,6 +18,7 @@ import { MembersManager } from '@/modules/admin/components/MembersManager';
 import { SyncDashboard } from '@/modules/admin/components/SyncDashboard';
 import { ProjectsList } from '@/modules/projects/components/ProjectsList';
 import { useProjects } from '@/modules/projects/hooks/useProjects';
+import { useLayers } from '@/modules/layers/hooks/useLayers';
 
 import { useMapStore } from '@/stores/mapStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -400,6 +401,7 @@ function MainLayout() {
   const { projectId } = useParams<{ projectId: string }>();
   const { currentProject, setCurrentProject } = useProjectStore();
   const { data: projects } = useProjects();
+  useLayers(currentProject?.id);
   const { layerPanelOpen, attributeTableOpen, identifiedFeature } = useMapStore();
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);

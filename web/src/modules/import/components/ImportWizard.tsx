@@ -9,6 +9,7 @@ import { parseGeoJson, parseCsvGeo, parseGpkg, type ParseResult } from '../parse
 import { layersApi } from '@/infra/api/layers.api';
 import { featuresApi } from '@/infra/api/features.api';
 import { useProjectStore } from '@/stores/projectStore';
+import { useLayerStore } from '@/stores/layerStore';
 import type { FeatureStatus } from '@/shared/types';
 
 type Step = 'upload' | 'configure' | 'preview' | 'importing';
@@ -375,6 +376,7 @@ function ImportingStep({
   onClose: () => void;
 }) {
   const { currentProject } = useProjectStore();
+  const addLayer = useLayerStore((s) => s.addLayer);
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
   const [currentLayer, setCurrentLayer] = useState('');
@@ -436,6 +438,8 @@ function ImportingStep({
         },
       }), REQUEST_TIMEOUT_MS, `Création de couche (${layerName})`);
 
+      addLayer(layer);
+
       setProgress(Math.max(1, Math.round((importedFeatures / totalFeatures) * 100)));
 
       for (let i = 0; i < result.features.length; i += BATCH_SIZE) {
@@ -462,7 +466,7 @@ function ImportingStep({
       queryClient.invalidateQueries({ queryKey: ['layers'] }),
       new Promise<void>((resolve) => setTimeout(resolve, 5000)),
     ]);
-  }, [currentProject, layerNames, queryClient, results]);
+  }, [addLayer, currentProject, layerNames, queryClient, results]);
 
   useEffect(() => {
     let cancelled = false;
