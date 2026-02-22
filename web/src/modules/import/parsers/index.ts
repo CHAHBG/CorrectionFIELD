@@ -97,6 +97,10 @@ export async function parseGpkg(file: File): Promise<ParseResult> {
 
   sqlDb.close();
 
+  if (features.length === 0) {
+    throw new Error('Aucune géométrie valide trouvée dans ce GPKG (couche vide ou géométries non reconnues).');
+  }
+
   const geometryType = mapGpkgGeomType(geomTypeName);
   const fields = inferFieldsFromProperties(features);
   const name = file.name.replace(/\.gpkg$/i, '');

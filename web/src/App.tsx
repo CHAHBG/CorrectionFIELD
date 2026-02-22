@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { MapCanvas } from '@/modules/map/components/MapCanvas';
 import { LayerPanel } from '@/modules/layers/components/LayerPanel';
+import { SymbologyEditor } from '@/modules/layers/components/SymbologyEditor';
 import { AttributeTable } from '@/modules/layers/AttributeTable/AttributeTable';
 import { CorrectionPanel } from '@/modules/corrections/components/CorrectionPanel';
 import { ImportWizard } from '@/modules/import/components/ImportWizard';
@@ -21,9 +22,12 @@ import { useProjects } from '@/modules/projects/hooks/useProjects';
 import { useLayers } from '@/modules/layers/hooks/useLayers';
 
 import { useMapStore } from '@/stores/mapStore';
+import { useLayerStore } from '@/stores/layerStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { supabase } from '@/infra/supabase';
 import { syncEngine } from '@/infra/sync/SyncEngine';
+import { layersApi } from '@/infra/api/layers.api';
+import type { Layer, LayerStyle } from '@/shared/types';
 
 import './index.css';
 
@@ -402,6 +406,7 @@ function MainLayout() {
   const { currentProject, setCurrentProject } = useProjectStore();
   const { data: projects } = useProjects();
   useLayers(currentProject?.id);
+  const updateLayerInStore = useLayerStore((s) => s.updateLayer);
   const { layerPanelOpen, attributeTableOpen, identifiedFeature } = useMapStore();
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -409,6 +414,7 @@ function MainLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [symbologyLayer, setSymbologyLayer] = useState<Layer | null>(null);
 
   useEffect(() => {
     if (!projectId || !projects || projects.length === 0) return;
@@ -418,6 +424,12 @@ function MainLayout() {
       setCurrentProject(matched);
     }
   }, [projectId, projects, currentProject?.id, setCurrentProject]);
+
+  const handleSymbologySave = async (style: LayerStyle) => {
+    if (!symbologyLayer) return;
+    updateLayerInStore(symbologyLayer.id, { style });
+    await layersApi.update(symbologyLayer.id, { style });
+  };
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden">
@@ -434,7 +446,7 @@ function MainLayout() {
         {/* Left: Layer Panel */}
         {layerPanelOpen && (
           <div className="w-72 flex-shrink-0 overflow-y-auto border-r bg-white">
-            <LayerPanel />
+            <LayerPanel onOpenSymbology={(layer) => setSymbologyLayer(layer)} />
           </div>
         )}
 
@@ -476,6 +488,14 @@ function MainLayout() {
         <Modal onClose={() => setSyncOpen(false)}>
           <SyncDashboard />
         </Modal>
+      )}
+
+      {symbologyLayer && (
+        <SymbologyEditor
+          layer={symbologyLayer}
+          onClose={() => setSymbologyLayer(null)}
+          onSave={handleSymbologySave}
+        />
       )}
     </div>
   );

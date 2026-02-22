@@ -52,9 +52,15 @@ function parseWkbAt(blob: Uint8Array, offset: number): ParsedWkb | null {
 
   const littleEndian = blob[offset] === 1;
   const typeRaw = readUint32(blob, offset + 1, littleEndian);
-  const { baseType, hasZ, hasM } = decodeWkbType(typeRaw);
+  const { baseType, hasZ, hasM, hasSrid } = decodeWkbType(typeRaw);
   const pointStride = 16 + (hasZ ? 8 : 0) + (hasM ? 8 : 0);
   let cursor = offset + 5;
+
+  // EWKB with SRID stores 4 extra bytes right after type word
+  if (hasSrid) {
+    if (cursor + 4 > blob.length) return null;
+    cursor += 4;
+  }
 
   const readPoint = (): [number, number] | null => {
     if (cursor + pointStride > blob.length) return null;
@@ -143,9 +149,10 @@ function parseWkbAt(blob: Uint8Array, offset: number): ParsedWkb | null {
   return null;
 }
 
-function decodeWkbType(raw: number): { baseType: number; hasZ: boolean; hasM: boolean } {
+function decodeWkbType(raw: number): { baseType: number; hasZ: boolean; hasM: boolean; hasSrid: boolean } {
   const hasZFlag = (raw & 0x80000000) !== 0;
   const hasMFlag = (raw & 0x40000000) !== 0;
+  const hasSridFlag = (raw & 0x20000000) !== 0;
   let base = raw & 0x0fffffff;
 
   let hasZ = hasZFlag;
@@ -163,7 +170,7 @@ function decodeWkbType(raw: number): { baseType: number; hasZ: boolean; hasM: bo
     base -= 1000;
   }
 
-  return { baseType: base, hasZ, hasM };
+  return { baseType: base, hasZ, hasM, hasSrid: hasSridFlag };
 }
 
 function readUint32(blob: Uint8Array, offset: number, littleEndian: boolean): number {
