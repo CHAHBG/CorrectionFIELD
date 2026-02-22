@@ -9,7 +9,7 @@ export function CoordinateDisplay() {
   const [coords] = useState<{ lng: number; lat: number } | null>(null);
 
   return (
-    <div className="absolute bottom-2 left-2 z-10 rounded bg-white/90 px-2 py-1 text-xs font-mono text-gray-700 shadow-sm border border-gray-200">
+    <div className="absolute bottom-2 left-2 z-10 rounded bg-white/90 px-2 py-1 text-xs font-mono text-slate-600 shadow-sm border border-slate-200">
       {coords
         ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)} · WGS84`
         : 'Survolez la carte'}

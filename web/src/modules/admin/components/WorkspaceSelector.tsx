@@ -76,44 +76,45 @@ export function WorkspaceSelector() {
     }
 
     return (
-        <div className="flex min-h-screen w-screen flex-col items-center bg-slate-50">
-            <header className="w-full border-b border-slate-800 bg-slate-900 shadow-sm">
-                <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded border border-slate-700 bg-slate-800 text-sm font-bold text-white shadow-sm">
-                            FC
+        <div className="flex min-h-screen w-screen flex-col items-center bg-[#FAF9F6]">
+            <header className="sticky top-0 z-10 border-b border-[#EBEAE4] bg-white">
+                <div className="mx-auto flex w-full items-center justify-between px-6 py-3">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2 font-bold text-slate-900">
+                            <span className="text-xl leading-none tracking-tight">FieldCorrect</span>
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-white">FieldCorrect</span>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                        {currentUser && (
-                            <div className="hidden items-center gap-3 md:flex border-r border-slate-700 pr-6">
-                                <div className="flex flex-col text-right">
-                                    <span className="text-sm font-semibold text-slate-200">{currentUser.full_name || 'Utilisateur'}</span>
-                                    <span className="text-xs text-slate-400">{currentUser.email}</span>
-                                </div>
-                            </div>
-                        )}
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={handleLogout}
-                            className="group flex items-center justify-center rounded p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
+                            className="group flex p-2 text-slate-400 transition-colors hover:text-red-600 hover:bg-red-50 rounded"
                             title="Se déconnecter"
                         >
-                            <LogOut className="h-5 w-5" />
+                            <LogOut className="h-4 w-4" />
                         </button>
+                        {currentUser && (
+                            <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
+                                    {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                <span className="text-sm font-semibold text-slate-700 hidden md:block">
+                                    {currentUser.full_name?.split(' ')[0] || 'Utilisateur'}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
 
-            <div className="mt-16 w-full max-w-4xl px-6">
-                <div className="mb-12 text-center">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Vos Espaces de Travail</h1>
-                    <p className="mt-4 text-lg text-slate-500">Sélectionnez une organisation pour accéder à vos projets</p>
+            <main className="mx-auto mt-12 w-full max-w-[1200px] px-8">
+                <div className="mb-12">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Vos Espaces de Travail</h1>
+                    <p className="text-sm text-slate-500">Sélectionnez une organisation pour accéder à vos projets</p>
                 </div>
 
                 {error && (
-                    <div className="mb-8 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600 border border-red-200 shadow-sm text-center">
+                    <div className="mb-8 rounded-lg bg-red-50 p-4 text-sm font-medium text-red-600 border border-red-200 shadow-sm">
                         {error}
                     </div>
                 )}
@@ -123,41 +124,33 @@ export function WorkspaceSelector() {
                         <button
                             key={org.id}
                             onClick={() => handleSelect(org)}
-                            className="group relative flex h-44 flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-md focus:outline-none"
+                            className="group flex flex-col cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white p-6 text-left shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all hover:border-blue-600 hover:shadow-md min-h-[160px]"
                         >
-                            <div className="relative z-10 w-full">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded border border-slate-100 bg-slate-50 font-bold text-slate-700">
-                                        {org.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-slate-900">{org.name}</h3>
+                            <div className="flex items-center gap-4">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-xl font-bold text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                    {org.name.charAt(0).toUpperCase()}
                                 </div>
-                            </div>
-
-                            <div className="flex items-center justify-between mt-4">
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 capitalize">
-                                    {org.role === 'owner' ? 'Propriétaire' : org.role}
-                                </span>
-                                <span className="text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                    </svg>
-                                </span>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-1">{org.name}</h3>
+                                    <span className="text-xs font-medium text-slate-500 capitalize">
+                                        {org.role === 'owner' ? 'Propriétaire' : org.role}
+                                    </span>
+                                </div>
                             </div>
                         </button>
                     ))}
 
                     {/* Create New Org Card */}
-                    <div className="relative flex h-44 flex-col justify-center rounded-xl border-2 border-dashed border-slate-300 bg-transparent p-6 text-center transition-all hover:border-slate-400 hover:bg-slate-50">
+                    <div className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-transparent p-6 text-center transition-colors hover:bg-white hover:border-slate-400">
                         {!isCreating ? (
                             <button
                                 onClick={() => setIsCreating(true)}
-                                className="flex h-full w-full flex-col items-center justify-center focus:outline-none"
+                                className="group flex h-full w-full flex-col items-center justify-center focus:outline-none"
                             >
-                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors group-hover:text-slate-900 group-hover:border-slate-300">
+                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 shadow-sm transition-colors group-hover:bg-green-600 group-hover:text-white">
                                     <Plus className="h-6 w-6" />
                                 </div>
-                                <span className="text-sm font-medium text-slate-700">Créer une organisation</span>
+                                <span className="font-semibold text-slate-500 group-hover:text-slate-900 transition-colors">Nouvelle organisation</span>
                             </button>
                         ) : (
                             <form onSubmit={handleCreate} className="flex h-full flex-col justify-center gap-2">
@@ -165,7 +158,7 @@ export function WorkspaceSelector() {
                                     type="text"
                                     autoFocus
                                     placeholder="Nom de l'entreprise"
-                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="w-full rounded-md border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
                                     value={newOrgName}
                                     onChange={(e) => setNewOrgName(e.target.value)}
                                     required
@@ -174,13 +167,13 @@ export function WorkspaceSelector() {
                                     <button
                                         type="button"
                                         onClick={() => setIsCreating(false)}
-                                        className="flex-1 rounded-md border border-slate-300 bg-white py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                        className="flex-1 rounded-md border border-slate-300 bg-white py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                                     >
                                         Annuler
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 rounded-md bg-slate-900 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800"
+                                        className="flex-1 rounded-md bg-green-600 py-2 text-xs font-bold text-white transition-colors hover:bg-green-700 shadow-sm"
                                     >
                                         Créer
                                     </button>
@@ -189,7 +182,7 @@ export function WorkspaceSelector() {
                         )}
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     );
 }

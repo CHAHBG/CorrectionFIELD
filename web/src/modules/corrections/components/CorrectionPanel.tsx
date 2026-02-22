@@ -19,18 +19,23 @@ export function CorrectionPanel() {
   if (!feature) return null;
 
   return (
-    <div className="flex h-full w-80 flex-col bg-white border-l border-gray-200 shadow-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-3 py-2 bg-gray-50 shrink-0">
-        <div className="flex items-center gap-2">
-          <MapPin size={14} className="text-blue-600" />
-          <span className="text-sm font-semibold text-gray-800 truncate">
-            Feature {feature.id.substring(0, 8)}
+    <div className="flex h-full w-[360px] flex-col bg-white border-l border-slate-200 shadow-2xl">
+      {/* Premium Header */}
+      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 bg-[#FAF9F6] shrink-0">
+        <div className="flex flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-600">
+            <MapPin size={12} strokeWidth={3} /> SÉLECTION
+          </span>
+          <span className="text-lg font-extrabold text-slate-900 truncate tracking-tight">
+            Feature {feature.id.substring(0, 8).toUpperCase()}
           </span>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={closePanel}>
-          <X size={14} />
-        </Button>
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/60 text-slate-500 transition-all hover:scale-105 hover:bg-red-50 hover:text-red-500"
+          onClick={closePanel}
+        >
+          <X size={16} strokeWidth={2.5} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -51,27 +56,48 @@ export function CorrectionPanel() {
 }
 
 function StatusSection({ feature }: { feature: AppFeature }) {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200">En attente</span>;
+      case 'locked': return <span className="rounded-md bg-orange-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-orange-600 border border-orange-200">Verrouillé</span>;
+      case 'corrected': return <span className="rounded-md bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 border border-blue-200">Corrigé</span>;
+      case 'validated': return <span className="rounded-md bg-green-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-600 border border-green-200">Validé</span>;
+      default: return <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{status}</span>;
+    }
+  };
+
   return (
-    <div className="border-b px-3 py-3 space-y-2">
+    <div className="border-b border-slate-200 bg-white px-6 py-5 space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-500">Status</span>
-        <Badge variant={feature.status}>{feature.status}</Badge>
+        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">État du flux</span>
+        {getStatusBadge(feature.status)}
       </div>
 
       {feature.lockedBy && (
-        <div className="flex items-center gap-2 rounded bg-yellow-50 p-2">
-          <Lock size={12} className="text-yellow-600" />
-          <span className="text-xs text-yellow-800">
-            Verrouillée par <strong>{feature.lockedBy}</strong>
-          </span>
+        <div className="flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50/50 p-3 shadow-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+            <Lock size={14} strokeWidth={2.5} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Verrouillée par</span>
+            <span className="text-sm font-semibold text-slate-900">{feature.lockedBy}</span>
+          </div>
         </div>
       )}
 
       {feature.correctedBy && (
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <User size={12} /> Corrigée par {feature.correctedBy}
+        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 shadow-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-600">
+            <User size={14} strokeWidth={2.5} />
+          </div>
+          <div className="flex flex-col flex-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dernière correction</span>
+            <span className="text-sm font-semibold text-slate-900">{feature.correctedBy}</span>
+          </div>
           {feature.correctedAt && (
-            <span className="ml-auto">{new Date(feature.correctedAt).toLocaleDateString()}</span>
+            <span className="text-xs font-medium text-slate-500">
+              {new Date(feature.correctedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+            </span>
           )}
         </div>
       )}
@@ -84,20 +110,19 @@ function AttributesSection({ feature }: { feature: AppFeature }) {
   const entries = Object.entries(props).filter(([k]) => !k.startsWith('_'));
 
   return (
-    <div className="border-b px-3 py-3">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-        <FileText size={12} className="inline mr-1" />
-        Attributs
+    <div className="border-b border-slate-200 px-6 py-6 bg-[#FAF9F6]">
+      <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+        <FileText size={14} /> Attributs
       </h3>
-      <div className="space-y-1">
+      <div className="space-y-3">
         {entries.length === 0 && (
-          <p className="text-xs text-gray-400 italic">Aucun attribut</p>
+          <p className="rounded-lg border border-slate-300 border-dashed p-4 text-center text-xs text-slate-500">Aucun attribut disponible</p>
         )}
         {entries.map(([key, value]) => (
-          <div key={key} className="flex justify-between gap-2 text-xs py-0.5">
-            <span className="font-medium text-gray-600 truncate">{key}</span>
-            <span className="text-gray-800 truncate text-right max-w-[60%]">
-              {value != null ? String(value) : <span className="text-gray-400 italic">null</span>}
+          <div key={key} className="group relative rounded-lg border border-transparent hover:border-slate-200 hover:bg-white p-2 -mx-2 transition-colors flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">{key}</span>
+            <span className="text-sm font-semibold text-slate-900 break-words">
+              {value != null ? String(value) : <span className="text-slate-400 italic font-medium">vide</span>}
             </span>
           </div>
         ))}
@@ -114,49 +139,52 @@ function CorrectionHistory({ featureId }: { featureId: string }) {
   });
 
   return (
-    <div className="px-3 py-3">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-        <Clock size={12} className="inline mr-1" />
-        Historique des corrections
+    <div className="px-6 py-6 pb-20 bg-white">
+      <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+        <Clock size={14} /> Historique des activités
       </h3>
 
-      {isLoading && <Spinner className="py-4" />}
+      {isLoading && <div className="flex justify-center p-4"><Spinner className="h-6 w-6 text-slate-400" /></div>}
 
       {corrections && corrections.length === 0 && (
-        <p className="text-xs text-gray-400 italic">Aucune correction</p>
+        <p className="rounded-lg border border-slate-200 border-dashed p-4 text-center text-xs text-slate-500">Aucune activité récente</p>
       )}
 
-      {corrections?.map((c) => (
-        <CorrectionEntry key={c.id} correction={c} />
-      ))}
+      {corrections && corrections.length > 0 && (
+        <div className="relative border-l-2 border-slate-200 ml-2.5 space-y-4 pb-4">
+          {corrections?.map((c) => (
+            <CorrectionEntry key={c.id} correction={c} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function CorrectionEntry({ correction }: { correction: Correction }) {
   return (
-    <div className="flex items-start gap-2 mb-2 p-2 rounded bg-gray-50 text-xs">
+    <div className="relative pl-6">
       <div
         className={cn(
-          'mt-0.5 h-2 w-2 rounded-full shrink-0',
-          correction.status === 'validated' && 'bg-green-500',
-          correction.status === 'submitted' && 'bg-blue-500',
-          correction.status === 'rejected' && 'bg-red-500'
+          'absolute -left-[5px] top-1.5 h-2 w-2 rounded-full border-2 border-white ring-2 ring-white',
+          correction.status === 'validated' ? 'bg-green-500 ring-green-100' :
+            correction.status === 'submitted' ? 'bg-blue-500 ring-blue-100' :
+              correction.status === 'rejected' ? 'bg-red-500 ring-red-100' : 'bg-slate-400'
         )}
       />
-      <div className="flex-1 min-w-0">
+      <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-gray-700 truncate">{correction.userId.substring(0, 8)}</span>
-          <span className="text-gray-400 shrink-0">
-            {new Date(correction.createdAt).toLocaleDateString()}
+          <span className="text-xs font-bold text-slate-900">{correction.userId.substring(0, 8)}</span>
+          <span className="text-[10px] font-medium text-slate-500">
+            {new Date(correction.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
           </span>
         </div>
         {correction.notes && (
-          <p className="mt-0.5 text-gray-500 truncate">{correction.notes}</p>
+          <p className="text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-md mt-1">{correction.notes}</p>
         )}
-        {correction.propsPatch && (
-          <div className="mt-1 text-gray-500">
-            {Object.keys(correction.propsPatch).length} champ(s) modifié(s)
+        {correction.propsPatch && Object.keys(correction.propsPatch).length > 0 && (
+          <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold text-blue-600 uppercase">
+            <FileText size={10} /> {Object.keys(correction.propsPatch).length} champ(s) modifié(s)
           </div>
         )}
       </div>
@@ -260,65 +288,58 @@ function ActionBar({ feature }: { feature: AppFeature }) {
     submitMutation.isPending || validateMutation.isPending || rejectMutation.isPending;
 
   return (
-    <div className="flex flex-col gap-1 border-t px-3 py-2 bg-gray-50 shrink-0">
+    <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-6 py-5 shrink-0 shadow-[0_-4px_10px_-4px_rgba(0,0,0,0.05)] z-10">
       {(lockMutation.error || unlockMutation.error || submitMutation.error ||
         validateMutation.error || rejectMutation.error) && (
-          <p className="text-xs text-red-600 mb-1">
+          <p className="rounded-md bg-red-50 p-2 text-xs font-medium text-red-600 border border-red-100">
             {(lockMutation.error ?? unlockMutation.error ?? submitMutation.error ??
               validateMutation.error ?? rejectMutation.error)?.message}
           </p>
         )}
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         {feature.status === 'pending' && (
-          <Button
-            size="sm"
-            className="flex-1"
+          <button
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 active:translate-y-0 disabled:opacity-50"
             disabled={busy}
             onClick={() => lockMutation.mutate()}
           >
-            <Lock size={12} className="mr-1" /> Verrouiller & Corriger
-          </Button>
+            <Lock size={14} /> Verrouiller & Corriger
+          </button>
         )}
         {feature.status === 'locked' && (
           <>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="flex-1"
+            <button
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
               disabled={busy}
               onClick={() => unlockMutation.mutate()}
             >
-              <Unlock size={12} className="mr-1" /> Déverrouiller
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1"
+              <Unlock size={14} /> Annuler
+            </button>
+            <button
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 active:translate-y-0 disabled:opacity-50"
               disabled={busy}
               onClick={() => submitMutation.mutate()}
             >
-              <Check size={12} className="mr-1" /> Soumettre
-            </Button>
+              <Check size={14} /> Soumettre
+            </button>
           </>
         )}
         {feature.status === 'corrected' && (
           <>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="flex-1"
+            <button
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-red-600 disabled:opacity-50"
               disabled={busy}
               onClick={() => rejectMutation.mutate()}
             >
-              <XCircle size={12} className="mr-1" /> Rejeter
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              <XCircle size={14} /> Rejeter
+            </button>
+            <button
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-green-700 active:translate-y-0 disabled:opacity-50"
               disabled={busy}
               onClick={() => validateMutation.mutate()}
             >
-              <Check size={12} className="mr-1" /> Valider
-            </Button>
+              <Check size={14} /> Valider
+            </button>
           </>
         )}
       </div>

@@ -222,93 +222,180 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">FieldCorrect</h1>
-          <p className="mt-1 text-sm text-gray-500">Correction collaborative de données terrain</p>
+    <div className="flex min-h-screen w-screen bg-white text-slate-900">
+
+      {/* Left Area - Brand & Visual */}
+      <div className="hidden w-1/2 flex-col justify-between bg-[#FAF9F6] p-12 lg:flex border-r border-[#EFECE5]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-sm font-bold text-white shadow-lg shadow-green-600/20">
+            FC
+          </div>
+          <span className="text-2xl font-bold tracking-tight text-slate-900">FieldCorrect</span>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => switchMode('login')}
-            className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-          >
-            Se connecter
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode('signup')}
-            className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-          >
-            Créer un compte
-          </button>
+        <div className="z-10 relative">
+          <h1 className="text-5xl font-extrabold leading-tight text-slate-900">
+            Corriger <br />
+            les données <br />
+            <span className="text-blue-600">terrain</span> ensemble
+          </h1>
+          <p className="mt-6 max-w-md text-slate-600 text-lg">
+            Plateforme de correction collaborative de données géospatiales. Multi-utilisateur, offline-first, intégration Kobo/ODK native.
+          </p>
         </div>
 
-        <form onSubmit={isSignup ? handleSignup : handleLogin} className="space-y-4">
-          {isSignup && (
+        <div className="flex items-end gap-12 border-t border-[#EFECE5] pt-8">
+          <div>
+            <div className="text-3xl font-bold text-green-600">2 924</div>
+            <div className="mt-1 text-xs font-semibold tracking-wider text-slate-500 uppercase">Parcelles</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-blue-600">17</div>
+            <div className="mt-1 text-xs font-semibold tracking-wider text-slate-500 uppercase">Communes</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-green-600">68%</div>
+            <div className="mt-1 text-xs font-semibold tracking-wider text-slate-500 uppercase">Complété</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Area - Form */}
+      <div className="flex w-full flex-col justify-center px-8 sm:px-16 lg:w-1/2 xl:px-32 bg-white">
+        <div className="mx-auto w-full max-w-md">
+          {/* Mobile Header (hidden on desktop) */}
+          <div className="mb-12 flex items-center justify-center gap-3 lg:hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-sm font-bold text-white shadow-lg shadow-green-600/20">
+              FC
+            </div>
+            <span className="text-2xl font-bold tracking-tight text-slate-900">FieldCorrect</span>
+          </div>
+
+          <div className="mb-8 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+                }`}
+            >
+              Se connecter
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('signup')}
+              className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-white text-blue-600 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+                }`}
+            >
+              Créer un compte
+            </button>
+          </div>
+
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-slate-900">
+              {isSignup ? 'Créer un compte' : 'Bon retour'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {isSignup ? 'Rejoignez votre équipe sur le terrain' : 'Connectez-vous à votre espace de travail'}
+            </p>
+          </div>
+
+          <form onSubmit={isSignup ? handleSignup : handleLogin} className="space-y-4">
+            {isSignup && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Nom complet</label>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
+                  placeholder="Ex : Oumar Diallo"
+                  required
+                />
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700">Nom complet</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Adresse email</label>
               <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                type="email"
+                autoComplete="username email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
+                placeholder="exemple@email.com"
                 required
               />
             </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {isSignup && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Mot de passe</label>
               <input
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
+                placeholder="••••••••"
                 required
               />
             </div>
-          )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {success && <p className="text-sm text-green-600">{success}</p>}
+            {isSignup && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Confirmer le mot de passe</label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loadingAction !== null}
-            className="w-full rounded-md bg-slate-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
-          >
-            {loadingAction === 'login' && 'Connexion…'}
-            {loadingAction === 'signup' && 'Création…'}
-            {loadingAction === null && (isSignup ? 'Créer mon compte' : 'Se connecter')}
-          </button>
-        </form>
+            {error && <div className="rounded-lg bg-red-50 p-4 text-sm font-medium text-red-600 border border-red-100">{error}</div>}
+            {success && <div className="rounded-lg bg-green-50 p-4 text-sm font-medium text-green-600 border border-green-100">{success}</div>}
+
+            <button
+              type="submit"
+              disabled={!!loadingAction}
+              className="mt-8 flex w-full items-center justify-center rounded-lg bg-blue-600 py-3.5 font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-70 shadow-md shadow-blue-600/20"
+            >
+              {loadingAction ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span>Traitement...</span>
+                </div>
+              ) : (
+                <>{isSignup ? 'Créer mon compte' : 'Se connecter'}</>
+              )}
+            </button>
+
+            {!isSignup && (
+              <>
+                <div className="relative my-8">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-4 text-xs font-medium text-slate-500">ou continuer avec</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-sm"
+                >
+                  <Layers className="h-5 w-5 text-blue-600" />
+                  Connexion SSO Organisation
+                </button>
+              </>
+            )}
+
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -330,7 +417,7 @@ function HeaderBar({
   onMembers: () => void;
   onSync: () => void;
 }) {
-  const { currentProject, currentUser, logout } = useProjectStore();
+  const { currentProject, activeOrganization, currentUser, logout } = useProjectStore();
 
   const navigate = useNavigate();
 
@@ -340,38 +427,55 @@ function HeaderBar({
   };
 
   return (
-    <header className="flex h-12 w-full items-center justify-between border-b border-slate-800 bg-slate-900 px-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm font-bold text-slate-100 transition-colors hover:text-white">
+    <header className="flex h-14 w-full items-center justify-between border-b border-[#EBEAE4] bg-[#FAF9F6] px-6">
+      <div className="flex items-center gap-4 text-sm">
+        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 font-bold text-slate-900 transition-colors hover:text-blue-600">
           <Layers className="h-4 w-4" />
           FieldCorrect
         </button>
         {currentProject && (
-          <span className="text-sm font-medium text-slate-400">/ {currentProject.name}</span>
+          <div className="flex items-center gap-2 font-medium text-slate-500">
+            <span className="text-slate-300">/</span>
+            <span className="cursor-pointer hover:text-slate-800 transition-colors" onClick={() => navigate('/projects')}>{activeOrganization?.name}</span>
+            <span className="text-slate-300">/</span>
+            <span className="font-bold text-slate-900">{currentProject.name}</span>
+          </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2 text-slate-300">
-        <HeaderButton onClick={onImport} icon={<Upload className="h-4 w-4" />} label="Import" />
-        <HeaderButton onClick={onExport} icon={<Download className="h-4 w-4" />} label="Export" />
+      <div className="flex items-center gap-2">
+        <OnlineIndicator />
+        <div className="mx-2 h-5 w-px bg-slate-200" />
+
+        <HeaderButton onClick={onImport} icon={<Upload className="h-4 w-4" />} label="Importer" />
+        <HeaderButton onClick={onExport} icon={<Download className="h-4 w-4" />} label="Exporter" />
+        <div className="mx-2 h-5 w-px bg-slate-200" />
         <HeaderButton onClick={onPrint} icon={<Printer className="h-4 w-4" />} label="Imprimer" />
-        <div className="mx-2 h-5 w-px bg-slate-700" />
         <HeaderButton onClick={onSettings} icon={<Settings className="h-4 w-4" />} />
         <HeaderButton onClick={onMembers} icon={<Users className="h-4 w-4" />} />
         <HeaderButton onClick={onSync} icon={<RefreshCw className="h-4 w-4" />} />
-        <div className="mx-2 h-5 w-px bg-slate-700" />
-        <OnlineIndicator />
-        {currentUser && (
-          <span className="ml-2 mr-4 text-xs font-medium text-slate-300">{currentUser.full_name || currentUser.email}</span>
-        )}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
-          title="Se déconnecter"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Déconnexion
-        </button>
+
+        <div className="mx-2 h-5 w-px bg-slate-200" />
+        <div className="flex items-center gap-2 pl-2">
+          {currentUser && (
+            <div className="flex flex-col items-end mr-2">
+              <span className="text-xs font-bold text-slate-800">{currentUser.full_name || 'U'}</span>
+              <span className="text-[10px] text-slate-500">{currentUser.email}</span>
+            </div>
+          )}
+          {currentUser && (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm cursor-pointer hover:bg-blue-700 transition-colors" title={currentUser.full_name || currentUser.email}>
+              {currentUser.full_name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center rounded p-1.5 ml-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+            title="Se déconnecter"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -381,7 +485,7 @@ function HeaderButton({ onClick, icon, label }: { onClick: () => void; icon: Rea
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 ${label ? 'min-w-fit' : 'w-8'}`}
+      className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-200/50 hover:text-slate-900 ${label ? 'min-w-fit' : 'w-8 h-8 px-0'}`}
     >
       {icon}
       {label && <span>{label}</span>}
@@ -400,10 +504,12 @@ function OnlineIndicator() {
   }, []);
 
   return (
-    <span
-      className={`h-2 w-2 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'}`}
-      title={online ? 'En ligne' : 'Hors ligne'}
-    />
+    <div className="flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 border border-slate-200" title={online ? 'En ligne' : 'Hors ligne'}>
+      <div className={`h-2 w-2 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'} shadow-[0_0_8px_rgba(34,197,94,0.4)]`} />
+      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        {online ? 'En ligne' : 'Hors ligne'}
+      </span>
+    </div>
   );
 }
 

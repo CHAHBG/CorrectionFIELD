@@ -63,32 +63,32 @@ export function SearchBar({ onSelectResult }: SearchBarProps) {
   return (
     <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2 w-80">
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
         <Input
           placeholder="Rechercher un lieu, une parcelle..."
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
-          className="pl-9 pr-8 bg-white shadow-md"
+          className="pl-9 pr-8 bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 shadow-[0_4px_16px_rgba(0,0,0,0.1)] focus-visible:ring-blue-600 transition-colors"
         />
         {query && (
           <button
             className="absolute right-2.5 top-2.5"
             onClick={() => { setQuery(''); setResults([]); setOpen(false); }}
           >
-            <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+            <X className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" />
           </button>
         )}
       </div>
 
       {open && results.length > 0 && (
-        <div className="mt-1 rounded-md bg-white shadow-lg border border-gray-200 max-h-64 overflow-y-auto">
+        <div className="mt-1 rounded-md bg-white shadow-xl border border-slate-200 max-h-64 overflow-y-auto">
           {results.map((r) => (
             <button
               key={r.id}
               className={cn(
-                'w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors',
-                'flex flex-col border-b border-gray-100 last:border-0'
+                'w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors',
+                'flex flex-col border-b border-slate-100 last:border-0'
               )}
               onClick={() => {
                 onSelectResult?.(r);
@@ -96,9 +96,9 @@ export function SearchBar({ onSelectResult }: SearchBarProps) {
                 setQuery(r.label);
               }}
             >
-              <span className="text-sm font-medium text-gray-900">{r.label}</span>
+              <span className="text-sm font-medium text-slate-900">{r.label}</span>
               {r.sublabel && (
-                <span className="text-xs text-gray-500 truncate">{r.sublabel}</span>
+                <span className="text-xs text-slate-500 truncate">{r.sublabel}</span>
               )}
             </button>
           ))}

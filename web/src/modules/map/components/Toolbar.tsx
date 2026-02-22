@@ -38,7 +38,7 @@ export function Toolbar() {
   const setTool = useMapStore((s) => s.setTool);
 
   return (
-    <div className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex flex-col gap-0.5 rounded-lg bg-white p-1 shadow-lg border border-gray-200">
+    <div className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex flex-col gap-0.5 rounded-lg bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.1)] border border-slate-200">
       {/* Navigation group */}
       <ToolGroup tools={TOOLS.filter((t) => t.group === 'nav')} activeTool={activeTool} setTool={setTool} />
       <Divider />
@@ -71,8 +71,8 @@ function ToolGroup({
             variant="ghost"
             size="icon"
             className={cn(
-              'h-7 w-7',
-              activeTool === tool.id && 'bg-blue-100 text-blue-700'
+              'h-7 w-7 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors',
+              activeTool === tool.id && 'bg-blue-50 text-blue-600 hover:bg-blue-50 hover:text-blue-600'
             )}
             onClick={() => setTool(tool.id)}
           >
@@ -96,7 +96,7 @@ function UndoRedoButtons() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           disabled={undoLen === 0}
           onClick={undo}
         >
@@ -107,7 +107,7 @@ function UndoRedoButtons() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           disabled={redoLen === 0}
           onClick={redo}
         >
@@ -119,5 +119,5 @@ function UndoRedoButtons() {
 }
 
 function Divider() {
-  return <div className="mx-1 my-0.5 h-px bg-gray-200" />;
+  return <div className="mx-1 my-0.5 h-px bg-slate-200" />;
 }
