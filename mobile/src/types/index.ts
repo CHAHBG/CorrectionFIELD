@@ -110,6 +110,15 @@ export interface Correction {
   updated_at: string;
 }
 
+// ── Organization ───────────────────────────────────
+export interface Organization {
+  id: string;
+  slug: string;
+  name: string;
+  billing_plan: string;
+  role: 'owner' | 'admin' | 'member';
+}
+
 // ── Project ────────────────────────────────────────
 export interface Project {
   id: string;

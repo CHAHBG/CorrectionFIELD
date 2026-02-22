@@ -3,15 +3,17 @@
 // =====================================================
 
 import { create } from 'zustand';
-import { Project, UserProfile, MemberRole } from '@/types';
+import { Project, UserProfile, MemberRole, Organization } from '@/types';
 import { supabase } from '@/infra/supabase';
 import { Session } from '@supabase/supabase-js';
 
 interface ProjectState {
   session: Session | null;
   user: UserProfile | null;
+  activeOrganization: Organization | null;
   currentProject: Project | null;
   currentRole: MemberRole | null;
+  organizations: Organization[];
   projects: Project[];
   isAuthenticated: boolean;
   loading: boolean;
@@ -19,7 +21,9 @@ interface ProjectState {
   init: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setOrganization: (org: Organization | null) => void;
   setProject: (project: Project) => void;
+  fetchOrganizations: () => Promise<void>;
   fetchProjects: () => Promise<void>;
   skipAuth: () => void;
 }
@@ -27,8 +31,10 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>((set, get) => ({
   session: null,
   user: null,
+  activeOrganization: null,
   currentProject: null,
   currentRole: null,
+  organizations: [],
   projects: [],
   isAuthenticated: false,
   loading: true,
@@ -50,7 +56,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const user = await fetchProfile(nextSession.user.id);
           set({ session: nextSession, user, isAuthenticated: true });
         } else {
-          set({ session: null, user: null, isAuthenticated: false, currentProject: null });
+          set({ session: null, user: null, isAuthenticated: false, currentProject: null, activeOrganization: null });
         }
       });
     } catch (e) {
@@ -72,19 +78,51 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ session: null, user: null, currentProject: null, currentRole: null, isAuthenticated: false });
+    set({ session: null, user: null, currentProject: null, currentRole: null, activeOrganization: null, isAuthenticated: false });
+  },
+
+  setOrganization: (org) => {
+    set({ activeOrganization: org, currentProject: null, currentRole: null });
+    if (org) get().fetchProjects();
   },
 
   setProject: (project) => set({ currentProject: project, currentRole: project.role ?? 'viewer' }),
 
-  fetchProjects: async () => {
+  fetchOrganizations: async () => {
     const { user } = get();
-    if (!user) { return; }
+    if (!user || user.id === 'offline') return;
+
+    try {
+      const { data, error } = await supabase
+        .from('org_members')
+        .select(`
+          role,
+          organizations ( id, slug, name, billing_plan )
+        `)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      const orgs: Organization[] = (data || []).map((row: any) => ({
+        id: row.organizations.id,
+        slug: row.organizations.slug,
+        name: row.organizations.name,
+        billing_plan: row.organizations.billing_plan,
+        role: row.role,
+      }));
+      set({ organizations: orgs });
+    } catch (e) {
+      console.error('[ProjectStore] fetchOrganizations', e);
+    }
+  },
+
+  fetchProjects: async () => {
+    const { user, activeOrganization } = get();
+    if (!user || user.id === 'offline' || !activeOrganization) { return; }
     try {
       const { data } = await supabase
         .from('projects')
-        .select('*, project_members!inner(user_id, role)')
-        .eq('project_members.user_id', user.id)
+        .select('*')
+        .eq('org_id', activeOrganization.id)
         .order('created_at', { ascending: false });
 
       const projects: Project[] = (data ?? []).map((p: any) => ({
@@ -95,7 +133,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         settings: p.settings ?? {},
         created_at: p.created_at,
         updated_at: p.updated_at ?? p.created_at,
-        role: p.project_members?.[0]?.role ?? 'viewer',
+        role: activeOrganization.role as MemberRole, // Inherit role from organization in V2
       }));
       set({ projects });
     } catch (e) {

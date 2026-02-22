@@ -26,46 +26,35 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Projects'>;
 
 export default function ProjectsScreen() {
   const nav = useNavigation<Nav>();
-  const { setProject, user } = useProjectStore();
-
-  const [projects, setProjects] = useState<Project[]>([]);
+  const {
+    setProject,
+    user,
+    organizations,
+    activeOrganization,
+    setOrganization,
+    projects,
+    fetchOrganizations,
+    fetchProjects
+  } = useProjectStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const fetchProjects = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     // Skip Supabase call for offline user
     if (!user || user.id === 'offline') {
-      setProjects([]);
       return;
     }
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          project_members!inner(user_id, role)
-        `)
-        .eq('project_members.user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) { throw error; }
-      setProjects(
-        (data ?? []).map((p: any) => ({
-          id: p.id,
-          slug: p.slug,
-          name: p.name,
-          description: p.description,
-          settings: p.settings ?? {},
-          created_at: p.created_at,
-          updated_at: p.updated_at ?? p.created_at,
-          role: p.project_members?.[0]?.role ?? 'viewer',
-        })),
-      );
-    } catch (e) {
-      console.error('[ProjectsScreen] fetch', e);
+    await fetchOrganizations();
+    if (activeOrganization) {
+      await fetchProjects();
     }
-  }, [user]);
+  }, [user, activeOrganization, fetchOrganizations, fetchProjects]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
 
   useEffect(() => {
     setLoading(true);
@@ -74,7 +63,7 @@ export default function ProjectsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchProjects();
+    await fetchAll();
     setRefreshing(false);
   };
 
@@ -83,28 +72,82 @@ export default function ProjectsScreen() {
     nav.navigate('Main');
   };
 
+  // 1. Organization List View
+  if (!activeOrganization) {
+    const filteredOrgs = organizations.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()));
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Mes Organisations</Text>
+        </View>
+
+        <View style={styles.searchRow}>
+          <Icon name="magnify" size={20} color={colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher une organisation…"
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {filteredOrgs.length === 0 ? (
+          <EmptyState
+            icon="domain"
+            title="Aucune organisation"
+            subtitle={user?.id === 'offline' ? 'Connectez-vous pour accéder à vos organisations' : 'Demandez une invitation à un projet existant'}
+          />
+        ) : (
+          <FlatList
+            data={filteredOrgs}
+            keyExtractor={(o) => o.id}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.projectCard}
+                onPress={() => setOrganization(item)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.projectIcon, { backgroundColor: colors.info + '15' }]}>
+                  <Text style={{ ...typography.h3, color: colors.info }}>
+                    {item.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.projectInfo}>
+                  <Text style={styles.projectName}>{item.name}</Text>
+                  <Text style={styles.projectDesc}>Role: {item.role}</Text>
+                </View>
+                <Icon name="chevron-right" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </View>
+    );
+  }
+
+  // 2. Project List View (for the active organization)
   const filtered = projects.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.description ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Spinner />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mes Projets</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.subtitle}>{activeOrganization.name}</Text>
+          <Text style={styles.title}>Projets</Text>
+        </View>
+        <TouchableOpacity onPress={() => setOrganization(null)} style={styles.backButton}>
+          <Icon name="close" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={styles.searchRow}>
         <Icon name="magnify" size={20} color={colors.textMuted} />
         <TextInput
@@ -116,20 +159,17 @@ export default function ProjectsScreen() {
         />
       </View>
 
-      {/* Project List */}
       {filtered.length === 0 ? (
         <EmptyState
           icon="folder-open-outline"
           title="Aucun projet"
-          subtitle={user?.id === 'offline' ? 'Connectez-vous pour accéder à vos projets' : 'Demandez une invitation à un projet existant'}
+          subtitle="Cette organisation n'a pas encore de projet."
         />
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(p) => p.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -143,9 +183,7 @@ export default function ProjectsScreen() {
               <View style={styles.projectInfo}>
                 <Text style={styles.projectName}>{item.name}</Text>
                 {item.description ? (
-                  <Text style={styles.projectDesc} numberOfLines={2}>
-                    {item.description}
-                  </Text>
+                  <Text style={styles.projectDesc} numberOfLines={2}>{item.description}</Text>
                 ) : null}
                 <Text style={styles.projectMeta}>
                   {new Date(item.created_at).toLocaleDateString('fr-FR')}
@@ -160,20 +198,20 @@ export default function ProjectsScreen() {
   );
 }
 
-/* ─── Styles ─── */
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
   },
   title: { ...typography.h1, color: colors.textPrimary },
+  subtitle: { ...typography.caption, color: colors.primary, textTransform: 'uppercase', marginBottom: 2, fontWeight: 'bold' },
+  backButton: { padding: spacing.xs },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
