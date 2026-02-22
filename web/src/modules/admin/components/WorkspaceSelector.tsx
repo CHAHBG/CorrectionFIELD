@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { orgsApi, type Organization } from '@/infra/api/organizations.api';
 import { useProjectStore } from '@/stores/projectStore';
 import { supabase } from '@/infra/supabase';
+import { LogOut, Plus } from 'lucide-react';
 
 export function WorkspaceSelector() {
     const navigate = useNavigate();
@@ -76,33 +77,30 @@ export function WorkspaceSelector() {
 
     return (
         <div className="flex min-h-screen w-screen flex-col items-center bg-slate-50">
-            {/* Global Header */}
-            <header className="w-full border-b border-slate-200 bg-white shadow-sm">
+            <header className="w-full border-b border-slate-800 bg-slate-900 shadow-sm">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600 text-sm font-bold text-white shadow-sm">
+                        <div className="flex h-8 w-8 items-center justify-center rounded border border-slate-700 bg-slate-800 text-sm font-bold text-white shadow-sm">
                             FC
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-slate-800">FieldCorrect</span>
+                        <span className="text-xl font-bold tracking-tight text-white">FieldCorrect</span>
                     </div>
 
                     <div className="flex items-center gap-6">
                         {currentUser && (
-                            <div className="hidden items-center gap-3 md:flex border-r border-slate-200 pr-6">
+                            <div className="hidden items-center gap-3 md:flex border-r border-slate-700 pr-6">
                                 <div className="flex flex-col text-right">
-                                    <span className="text-sm font-semibold text-slate-700">{currentUser.full_name || 'Utilisateur'}</span>
-                                    <span className="text-xs text-slate-500">{currentUser.email}</span>
+                                    <span className="text-sm font-semibold text-slate-200">{currentUser.full_name || 'Utilisateur'}</span>
+                                    <span className="text-xs text-slate-400">{currentUser.email}</span>
                                 </div>
                             </div>
                         )}
                         <button
                             onClick={handleLogout}
-                            className="group flex items-center justify-center rounded-xl p-2.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            className="group flex items-center justify-center rounded p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
                             title="Se déconnecter"
                         >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
+                            <LogOut className="h-5 w-5" />
                         </button>
                     </div>
                 </div>
@@ -156,10 +154,8 @@ export function WorkspaceSelector() {
                                 onClick={() => setIsCreating(true)}
                                 className="flex h-full w-full flex-col items-center justify-center focus:outline-none"
                             >
-                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                    </svg>
+                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors group-hover:text-slate-900 group-hover:border-slate-300">
+                                    <Plus className="h-6 w-6" />
                                 </div>
                                 <span className="text-sm font-medium text-slate-700">Créer une organisation</span>
                             </button>
@@ -184,7 +180,7 @@ export function WorkspaceSelector() {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 rounded-md bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                                        className="flex-1 rounded-md bg-slate-900 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-800"
                                     >
                                         Créer
                                     </button>

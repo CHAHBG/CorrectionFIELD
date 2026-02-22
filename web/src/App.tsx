@@ -233,7 +233,7 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => switchMode('login')}
-            className={`rounded-md py-2 text-sm font-medium ${mode === 'login' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+            className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
           >
             Se connecter
@@ -241,7 +241,7 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => switchMode('signup')}
-            className={`rounded-md py-2 text-sm font-medium ${mode === 'signup' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+            className={`rounded-md py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
           >
             Créer un compte
@@ -302,7 +302,7 @@ function LoginPage() {
           <button
             type="submit"
             disabled={loadingAction !== null}
-            className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-md bg-slate-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
           >
             {loadingAction === 'login' && 'Connexion…'}
             {loadingAction === 'signup' && 'Création…'}
@@ -340,33 +340,33 @@ function HeaderBar({
   };
 
   return (
-    <header className="flex h-12 w-full items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm">
+    <header className="flex h-12 w-full items-center justify-between border-b border-slate-800 bg-slate-900 px-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
-          <Layers className="h-5 w-5" />
+        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm font-bold text-slate-100 transition-colors hover:text-white">
+          <Layers className="h-4 w-4" />
           FieldCorrect
         </button>
         {currentProject && (
-          <span className="text-sm font-medium text-slate-500">/ {currentProject.name}</span>
+          <span className="text-sm font-medium text-slate-400">/ {currentProject.name}</span>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 text-slate-300">
         <HeaderButton onClick={onImport} icon={<Upload className="h-4 w-4" />} label="Import" />
         <HeaderButton onClick={onExport} icon={<Download className="h-4 w-4" />} label="Export" />
         <HeaderButton onClick={onPrint} icon={<Printer className="h-4 w-4" />} label="Imprimer" />
-        <div className="mx-2 h-5 w-px bg-slate-200" />
+        <div className="mx-2 h-5 w-px bg-slate-700" />
         <HeaderButton onClick={onSettings} icon={<Settings className="h-4 w-4" />} />
         <HeaderButton onClick={onMembers} icon={<Users className="h-4 w-4" />} />
         <HeaderButton onClick={onSync} icon={<RefreshCw className="h-4 w-4" />} />
-        <div className="mx-2 h-5 w-px bg-slate-200" />
+        <div className="mx-2 h-5 w-px bg-slate-700" />
         <OnlineIndicator />
         {currentUser && (
-          <span className="ml-2 mr-4 text-xs font-medium text-slate-600">{currentUser.full_name || currentUser.email}</span>
+          <span className="ml-2 mr-4 text-xs font-medium text-slate-300">{currentUser.full_name || currentUser.email}</span>
         )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-red-600"
+          className="flex items-center gap-2 rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
           title="Se déconnecter"
         >
           <LogOut className="h-3.5 w-3.5" />
@@ -381,7 +381,7 @@ function HeaderButton({ onClick, icon, label }: { onClick: () => void; icon: Rea
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${label ? 'min-w-fit' : 'w-8'}`}
+      className={`flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 ${label ? 'min-w-fit' : 'w-8'}`}
     >
       {icon}
       {label && <span>{label}</span>}

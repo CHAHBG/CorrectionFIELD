@@ -9,7 +9,7 @@ import { useProjects, useCreateProject, useDeleteProject } from '../hooks/usePro
 import { useProjectStore } from '@/stores/projectStore';
 import type { Project } from '@/shared/types';
 import { supabase } from '@/infra/supabase';
-import { User, LogOut, FolderOpen, Folder } from 'lucide-react';
+import { User, LogOut, FolderOpen, Folder, Plus } from 'lucide-react';
 
 export function ProjectsList() {
   const navigate = useNavigate();
@@ -56,25 +56,25 @@ export function ProjectsList() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Premium Header */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 shadow-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 
           <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded bg-blue-600 text-white shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded border border-slate-700 bg-slate-800 text-white shadow-sm">
               <span className="text-lg font-bold">{activeOrganization.name.charAt(0).toUpperCase()}</span>
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-blue-600">{activeOrganization.name}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-300">{activeOrganization.name}</span>
+                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400 ring-1 ring-inset ring-slate-700">
                   {activeOrganization.role}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Espace de Projets</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight text-white">Espace de Projets</h1>
                 <button
                   onClick={() => navigate('/')}
-                  className="mt-1 text-sm font-medium text-slate-400 transition-colors hover:text-blue-600"
+                  className="mt-1 text-sm font-medium text-slate-400 transition-colors hover:text-white"
                 >
                   Changer d'organisation &rarr;
                 </button>
@@ -83,25 +83,25 @@ export function ProjectsList() {
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="hidden items-center gap-3 md:flex border-r border-slate-200 pr-6">
-              <div className="flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-slate-50 text-slate-500">
+            <div className="hidden items-center gap-3 md:flex border-r border-slate-700 pr-6">
+              <div className="flex h-8 w-8 items-center justify-center rounded border border-slate-600 bg-slate-800 text-slate-300">
                 <User className="h-4 w-4" />
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-sm font-semibold text-slate-700">{currentUser?.full_name || 'Utilisateur'}</span>
-                <span className="text-xs text-slate-500">{currentUser?.email}</span>
+                <span className="text-sm font-semibold text-slate-200">{currentUser?.full_name || 'Utilisateur'}</span>
+                <span className="text-xs text-slate-400">{currentUser?.email}</span>
               </div>
             </div>
 
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-95"
+              className="flex items-center gap-2 rounded bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm transition-all hover:bg-white active:scale-95"
             >
-              <span>+</span> Nouveau projet
+              <Plus className="h-4 w-4" /> Nouveau projet
             </button>
             <button
               onClick={handleLogout}
-              className="group flex items-center justify-center rounded p-2 text-slate-400 border border-transparent transition-colors hover:border-slate-200 hover:bg-slate-50 hover:text-red-600"
+              className="group flex items-center justify-center rounded p-2 text-slate-400 border border-transparent transition-colors hover:bg-slate-800 hover:text-red-400"
               title="Se déconnecter"
             >
               <LogOut className="h-5 w-5" />
