@@ -26,7 +26,7 @@ from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from shapely import wkb
-from shapely.geometry import mapping as geom_mapping
+from shapely.geometry import Point, mapping as geom_mapping
 
 
 # ── Config ──────────────────────────────────────────
@@ -463,3 +463,121 @@ async def list_layers(project_slug: str):
         return {"layers": layers}
     finally:
         conn.close()
+
+
+@app.post("/webhook/kobo")
+async def kobo_webhook(payload: dict):
+    """
+    Receives KoboToolbox webhook submissions.
+    Expected to find '_id', '_geolocation', and fields mapped to layer properties.
+    """
+    # Quick validation
+    kobo_form_id = payload.get("_xform_id_string")
+    submission_id = payload.get("_id")
+    
+    if not kobo_form_id or not submission_id:
+        raise HTTPException(status_code=400, detail="Missing _xform_id_string or _id")
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Find the layer configured for this Kobo form
+        # We query the layers table where form_config->>'kobo_form_id' matches or similar logic
+        # For v2, we assume form_config JSONB contains 'kobo_form_id'
+        cur.execute(
+            """
+            SELECT id, fields, project_id 
+            FROM public.layers 
+            WHERE form_config->>'kobo_form_id' = %s
+            LIMIT 1
+            """,
+            (str(kobo_form_id),)
+        )
+        layer = cur.fetchone()
+
+        if not layer:
+            # If we don't find it strictly by form_config, try finding any layer
+            # just to avoid dropping data if it's uniquely mapped
+            raise HTTPException(status_code=404, detail=f"No layer configured for Kobo form {kobo_form_id}")
+
+        layer_id = str(layer["id"])
+        fields_schema = layer.get("fields", [])
+
+        # Match submission data to layer fields
+        props_patch = {}
+        for field in fields_schema:
+            field_name = field.get("name")
+            kobo_name = field.get("kobo_question_name", field_name)
+            
+            if kobo_name in payload:
+                props_patch[field_name] = payload[kobo_name]
+
+        # Extract geometry from _geolocation [lat, lon]
+        geom_wkt = None
+        gps_point_wkt = None
+        geolocation = payload.get("_geolocation")
+        
+        if geolocation and len(geolocation) >= 2 and geolocation[0] is not None and geolocation[1] is not None:
+            lat = float(geolocation[0])
+            lon = float(geolocation[1])
+            pt = Point(lon, lat)
+            geom_wkt = pt.wkt
+            gps_point_wkt = pt.wkt
+
+        # Find if this submission updates an existing feature via a specific tracking field (e.g. 'feature_id')
+        # Kobo forms usually pass the original feature id in a hidden field. Let's look for 'feature_id' or similar.
+        feature_id = payload.get("feature_id") or payload.get("id_feature")
+        
+        if not feature_id:
+            # Fallback: We can't link this to a specific feature cleanly without an ID.
+            # Might store it as a new feature or orphan correction.
+            raise HTTPException(status_code=400, detail="Submission missing feature_id linking field")
+
+        # Upsert the correction
+        query = """
+            INSERT INTO public.corrections (
+                feature_id, layer_id, props_patch, geom_corrected, gps_point, 
+                kobo_submission_id, kobo_form_id, status, created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, 
+                ST_GeomFromText(%s, 4326), 
+                ST_GeomFromText(%s, 4326), 
+                %s, %s, 'submitted', now(), now()
+            )
+            ON CONFLICT (id) DO NOTHING
+            RETURNING id;
+        """
+        
+        # NOTE: UPSERT logic on conflict might require a UNIQUE constraint on Kobo submission ID.
+        # Since we use UUID primary keys by default, we just insert. 
+        # To make it truly idempotent based on Kobo ID, you'd add a unique constraint on (kobo_submission_id).
+        
+        cur.execute(
+            query,
+            (
+                feature_id,
+                layer_id,
+                orjson.dumps(props_patch).decode('utf-8'),
+                geom_wkt,
+                gps_point_wkt,
+                str(submission_id),
+                str(kobo_form_id)
+            )
+        )
+        
+        # Also auto-update feature status to 'corrected'
+        cur.execute(
+            "UPDATE public.features SET status = 'corrected', updated_at = now() WHERE id = %s AND status = 'locked'",
+            (feature_id,)
+        )
+        
+        conn.commit()
+        return {"status": "success", "layer_id": layer_id, "feature_id": feature_id}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
