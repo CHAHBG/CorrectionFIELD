@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { orgsApi, type Organization } from '@/infra/api/organizations.api';
 import { useProjectStore } from '@/stores/projectStore';
 import { supabase } from '@/infra/supabase';
-import { LogOut, Plus } from 'lucide-react';
+import { LogOut, Plus, Map } from 'lucide-react';
 
 export function WorkspaceSelector() {
     const navigate = useNavigate();
@@ -76,11 +76,12 @@ export function WorkspaceSelector() {
     }
 
     return (
-        <div className="flex min-h-screen w-screen flex-col items-center bg-[#FAF9F6]">
-            <header className="sticky top-0 z-10 border-b border-[#EBEAE4] bg-white">
-                <div className="mx-auto flex w-full items-center justify-between px-6 py-3">
+        <div className="flex min-h-screen w-screen flex-col items-center bg-[#F8F5F2]">
+            <header className="sticky top-0 z-10 w-full border-b border-[#E5E0D8] bg-white">
+                <div className="flex w-full items-center justify-between px-6 py-3">
                     <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2 font-bold text-slate-900">
+                        <div className="flex items-center gap-2 font-bold text-slate-900 cursor-default">
+                            <Map className="h-6 w-6 text-blue-600" strokeWidth={2.5} />
                             <span className="text-xl leading-none tracking-tight">FieldCorrect</span>
                         </div>
                     </div>

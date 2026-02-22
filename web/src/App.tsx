@@ -29,7 +29,7 @@ import { supabase } from '@/infra/supabase';
 import { syncEngine } from '@/infra/sync/SyncEngine';
 import { layersApi } from '@/infra/api/layers.api';
 import type { Layer, LayerStyle } from '@/shared/types';
-import { LogOut, Download, Upload, Printer, Settings, Users, RefreshCw, Layers } from 'lucide-react';
+import { LogOut, Download, Upload, Printer, Settings, Users, RefreshCw, Map } from 'lucide-react';
 import './index.css';
 
 // ── QueryClient singleton ───────────────────────────
@@ -388,7 +388,7 @@ function LoginPage() {
                   type="button"
                   className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-sm"
                 >
-                  <Layers className="h-5 w-5 text-blue-600" />
+                  <Map className="h-5 w-5 text-blue-600" />
                   Connexion SSO Organisation
                 </button>
               </>
@@ -427,10 +427,10 @@ function HeaderBar({
   };
 
   return (
-    <header className="flex h-14 w-full items-center justify-between border-b border-[#EBEAE4] bg-[#FAF9F6] px-6">
+    <header className="flex h-14 w-full items-center justify-between border-b border-[#E5E0D8] bg-[#F8F5F2] px-6">
       <div className="flex items-center gap-4 text-sm">
         <button onClick={() => navigate('/projects')} className="flex items-center gap-2 font-bold text-slate-900 transition-colors hover:text-blue-600">
-          <Layers className="h-4 w-4" />
+          <Map className="h-4 w-4 text-blue-600" strokeWidth={2.5} />
           FieldCorrect
         </button>
         {currentProject && (
@@ -455,7 +455,7 @@ function HeaderBar({
         <HeaderButton onClick={onMembers} icon={<Users className="h-4 w-4" />} />
         <HeaderButton onClick={onSync} icon={<RefreshCw className="h-4 w-4" />} />
 
-        <div className="mx-2 h-5 w-px bg-slate-200" />
+        <div className="mx-2 h-5 w-px bg-[#E5E0D8]" />
         <div className="flex items-center gap-2 pl-2">
           {currentUser && (
             <div className="flex flex-col items-end mr-2">

@@ -9,7 +9,7 @@ import { useProjects, useCreateProject, useDeleteProject } from '../hooks/usePro
 import { useProjectStore } from '@/stores/projectStore';
 import type { Project } from '@/shared/types';
 import { supabase } from '@/infra/supabase';
-import { User, LogOut, FolderOpen, Folder, Plus } from 'lucide-react';
+import { LogOut, Plus, User, Map } from 'lucide-react';
 
 export function ProjectsList() {
   const navigate = useNavigate();
@@ -54,39 +54,43 @@ export function ProjectsList() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6]">
+    <div className="min-h-screen bg-[#F8F5F2]">
       {/* Minimalist Header */}
-      <header className="sticky top-0 z-10 border-b border-[#EBEAE4] bg-white">
-        <div className="mx-auto flex w-full items-center justify-between px-6 py-3">
+      <header className="sticky top-0 z-10 w-full border-b border-[#E5E0D8] bg-white">
+        <div className="flex w-full items-center justify-between px-6 py-3">
           <div className="flex items-center gap-6">
             <button
               onClick={() => navigate('/')}
               className="flex items-center gap-2 font-bold text-slate-900 transition-colors hover:text-blue-600"
             >
+              <Map className="h-6 w-6 text-blue-600" strokeWidth={2.5} />
               <span className="text-xl leading-none tracking-tight">FieldCorrect</span>
             </button>
-            <nav className="flex items-center gap-4 text-sm font-medium">
-              <span className="text-slate-900 cursor-default">Projets</span>
-              <span className="text-slate-500 hover:text-slate-900 cursor-pointer transition-colors">Équipe</span>
-              <span className="text-slate-500 hover:text-slate-900 cursor-pointer transition-colors">Paramètres</span>
-            </nav>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleLogout}
-              className="group flex p-2 text-slate-400 transition-colors hover:text-red-600 hover:bg-red-50 rounded"
-              title="Se déconnecter"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
-                {currentUser?.full_name?.charAt(0).toUpperCase() || 'U'}
+          <div className="flex items-center gap-4">
+            <nav className="hidden items-center gap-6 text-sm font-medium md:flex mr-4">
+              <span className="text-slate-900 cursor-default border-b-2 border-blue-600 pb-1">Projets</span>
+              <span className="text-slate-400 hover:text-slate-600 cursor-not-allowed transition-colors" title="Bientôt disponible">Équipe</span>
+              <span className="text-slate-400 hover:text-slate-600 cursor-not-allowed transition-colors" title="Bientôt disponible">Paramètres</span>
+            </nav>
+
+            <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+              <button
+                onClick={handleLogout}
+                className="group flex p-2 text-slate-400 transition-colors hover:text-red-600 hover:bg-red-50 rounded"
+                title="Se déconnecter"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
+                  {currentUser?.full_name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <span className="text-sm font-semibold text-slate-700 hidden md:block">
+                  {currentUser?.full_name?.split(' ')[0] || 'Utilisateur'}
+                </span>
               </div>
-              <span className="text-sm font-semibold text-slate-700 hidden md:block">
-                {currentUser?.full_name?.split(' ')[0] || 'Utilisateur'}
-              </span>
             </div>
           </div>
         </div>
@@ -221,20 +225,15 @@ function ProjectCard({
         <div className="mt-4 flex items-end justify-between">
           <div className="flex gap-4">
             <div>
-              <div className="text-sm font-bold text-blue-600">128</div>
-              <div className="text-[9px] font-bold tracking-widest text-slate-500 uppercase">Features</div>
+              <div className="text-sm font-bold text-blue-600">0</div>
+              <div className="text-[9px] font-bold tracking-widest text-[#8C7E6A] uppercase">Features</div>
             </div>
             <div>
-              <div className="text-sm font-bold text-green-600">42%</div>
-              <div className="text-[9px] font-bold tracking-widest text-slate-500 uppercase">Complété</div>
+              <div className="text-sm font-bold text-green-600">0%</div>
+              <div className="text-[9px] font-bold tracking-widest text-[#8C7E6A] uppercase">Complété</div>
             </div>
           </div>
-
-          <div className="flex -space-x-1.5">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-blue-600 text-[8px] font-bold text-white">M</div>
-            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-green-600 text-[8px] font-bold text-white">B</div>
-            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-orange-500 text-[8px] font-bold text-white">A</div>
-          </div>
+          {/* Members badge removed as requested (none in project) */}
         </div>
       </div>
     </div>
