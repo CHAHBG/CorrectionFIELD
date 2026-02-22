@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orgsApi, type Organization } from '@/infra/api/organizations.api';
 import { useProjectStore } from '@/stores/projectStore';
+import { supabase } from '@/infra/supabase';
 
 export function WorkspaceSelector() {
     const navigate = useNavigate();
@@ -17,7 +18,7 @@ export function WorkspaceSelector() {
     const [isCreating, setIsCreating] = useState(false);
     const [newOrgName, setNewOrgName] = useState('');
 
-    const setActiveOrganization = useProjectStore(s => s.setActiveOrganization);
+    const { setActiveOrganization, currentUser, logout } = useProjectStore();
 
     useEffect(() => {
         loadOrganizations();
@@ -59,6 +60,12 @@ export function WorkspaceSelector() {
         }
     };
 
+    const handleLogout = async () => {
+        await logout();
+        await supabase.auth.signOut();
+        navigate('/login'); // We should check if login route exists or let auth listener handle it
+    };
+
     if (loading) {
         return (
             <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
@@ -68,27 +75,60 @@ export function WorkspaceSelector() {
     }
 
     return (
-        <div className="flex min-h-screen w-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-            <div className="w-full max-w-3xl">
-                <div className="mb-10 text-center">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Bienvenue sur FieldCorrect</h1>
-                    <p className="mt-3 text-lg text-slate-500">Sélectionnez votre espace de travail pour continuer</p>
+        <div className="flex min-h-screen w-screen flex-col items-center bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/50 via-slate-50 to-slate-100">
+            {/* Global Header */}
+            <header className="w-full border-b border-slate-200/60 bg-white/80 backdrop-blur-md shadow-sm">
+                <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md">
+                            FC
+                        </div>
+                        <span className="text-xl font-bold tracking-tight text-slate-800">FieldCorrect</span>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                        {currentUser && (
+                            <div className="hidden items-center gap-3 md:flex border-r border-slate-200 pr-6">
+                                <div className="flex flex-col text-right">
+                                    <span className="text-sm font-semibold text-slate-700">{currentUser.full_name || 'Utilisateur'}</span>
+                                    <span className="text-xs text-slate-500">{currentUser.email}</span>
+                                </div>
+                            </div>
+                        )}
+                        <button
+                            onClick={handleLogout}
+                            className="group flex items-center justify-center rounded-xl p-2.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            title="Se déconnecter"
+                        >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div className="mt-16 w-full max-w-4xl px-6">
+                <div className="mb-12 text-center">
+                    <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Vos Espaces de Travail</h1>
+                    <p className="mt-4 text-lg text-slate-500">Sélectionnez une organisation pour accéder à vos projets</p>
                 </div>
 
                 {error && (
-                    <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
+                    <div className="mb-8 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600 border border-red-200 shadow-sm text-center">
                         {error}
                     </div>
                 )}
 
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {orgs.map((org) => (
                         <button
                             key={org.id}
                             onClick={() => handleSelect(org)}
-                            className="group relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:border-blue-500 hover:shadow-md hover:ring-1 hover:ring-blue-500 focus:outline-none"
+                            className="group relative flex h-44 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white/60 backdrop-blur-sm p-6 text-left transition-all hover:-translate-y-1 hover:border-blue-400 hover:bg-white hover:shadow-xl hover:shadow-blue-900/5 focus:outline-none"
                         >
-                            <div>
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                            <div className="relative z-10 w-full">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-700">
                                         {org.name.charAt(0).toUpperCase()}
@@ -111,7 +151,7 @@ export function WorkspaceSelector() {
                     ))}
 
                     {/* Create New Org Card */}
-                    <div className="flex h-40 flex-col justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-transparent p-6 text-center transition-colors hover:border-slate-400 hover:bg-slate-50">
+                    <div className="relative flex h-44 flex-col justify-center rounded-2xl border-2 border-dashed border-slate-300/80 bg-slate-50/50 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30">
                         {!isCreating ? (
                             <button
                                 onClick={() => setIsCreating(true)}

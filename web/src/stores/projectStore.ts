@@ -18,6 +18,8 @@ interface ProjectState {
 
   isAuthenticated: boolean;
   setAuthenticated: (v: boolean) => void;
+
+  logout: () => void;
 }
 
 export const useProjectStore = create<ProjectState>()((set) => ({
@@ -32,4 +34,11 @@ export const useProjectStore = create<ProjectState>()((set) => ({
 
   isAuthenticated: false,
   setAuthenticated: (v) => set({ isAuthenticated: v }),
+
+  logout: () => set({
+    currentUser: null,
+    currentProject: null,
+    activeOrganization: null,
+    isAuthenticated: false
+  }),
 }));
