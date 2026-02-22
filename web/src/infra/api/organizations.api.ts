@@ -42,12 +42,14 @@ export const orgsApi = {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) throw new Error('Not authenticated');
 
-        // 1. Insert organization
-        const { data: orgData, error: orgError } = await supabase
+        // We generate the UUID on the client side to bypass the PostgREST 'RETURNING' RLS check
+        // (Since the user doesn't have SELECT permission on the organization until the org_members row is inserted)
+        const orgId = crypto.randomUUID();
+
+        // 1. Insert organization without returning it
+        const { error: orgError } = await supabase
             .from('organizations')
-            .insert({ name, slug })
-            .select()
-            .single();
+            .insert({ id: orgId, name, slug });
 
         if (orgError) throw orgError;
 
@@ -55,7 +57,7 @@ export const orgsApi = {
         const { error: memberError } = await supabase
             .from('org_members')
             .insert({
-                org_id: orgData.id,
+                org_id: orgId,
                 user_id: session.user.id,
                 role: 'owner',
             });
@@ -63,10 +65,10 @@ export const orgsApi = {
         if (memberError) throw memberError;
 
         return {
-            id: orgData.id,
-            slug: orgData.slug,
-            name: orgData.name,
-            billing_plan: orgData.billing_plan,
+            id: orgId,
+            slug: slug,
+            name: name,
+            billing_plan: 'free',
             role: 'owner',
         };
     }
