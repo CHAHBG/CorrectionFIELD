@@ -30,17 +30,17 @@ async function requireAuthUser() {
 }
 
 export const projectsApi = {
-  /** Get all projects the current user is a member of */
-  async getMyProjects(): Promise<Project[]> {
+  /** Get all projects the current user is a member of for a specific org */
+  async getMyProjects(orgId: string): Promise<Project[]> {
     const user = await requireAuthUser();
 
+    // In a multi-tenant setup, projects are visible if they belong to the org 
+    // and the user has access to that org (handled by RLS now).
+    // We just filter by org_id.
     const { data, error } = await supabase
       .from('projects')
-      .select(`
-        *,
-        project_members!inner(user_id, role)
-      `)
-      .eq('project_members.user_id', user.id)
+      .select('*')
+      .eq('org_id', orgId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -84,6 +84,7 @@ export const projectsApi = {
   async create(params: {
     name: string;
     slug: string;
+    org_id: string;
     description?: string;
     settings?: Partial<ProjectSettings>;
   }): Promise<Project> {
@@ -94,6 +95,7 @@ export const projectsApi = {
       .insert({
         name: params.name,
         slug: params.slug,
+        org_id: params.org_id,
         description: params.description || null,
         owner_id: user.id,
         settings: {

@@ -142,6 +142,40 @@ export function ProjectSettingsPanel({ onClose }: { onClose: () => void }) {
       {saveMutation.isError && (
         <p className="text-sm text-red-600">Erreur : {String(saveMutation.error)}</p>
       )}
+
+      {/* ── Integrations Section ── */}
+      <hr className="my-6 border-gray-200" />
+
+      <div>
+        <h3 className="text-md font-bold text-gray-900 mb-2">🔌 Intégrations</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Utilisez ces liens pour connecter des outils externes à ce projet.
+        </p>
+
+        <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 mb-4">
+          <h4 className="text-sm font-semibold text-blue-900">Webhook KoboToolbox</h4>
+          <p className="text-xs text-blue-800 mt-1 mb-2">
+            Copiez cette URL dans les "Services REST" de votre formulaire Kobo pour remonter automatiquement les données vers ce projet.
+          </p>
+          <div className="flex bg-white border border-blue-200 rounded text-sm px-3 py-2 text-gray-700 font-mono overflow-x-auto">
+            https://api.cabgn.com/webhook/kobo?project={currentProject?.id}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-purple-100 bg-purple-50 p-4">
+          <h4 className="text-sm font-semibold text-purple-900">QGIS Direct Connect</h4>
+          <p className="text-xs text-purple-800 mt-1 mb-2">
+            Ajoutez une connexion PostGIS dans QGIS avec ces identifiants pour lire les données en temps réel :
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-white p-3 rounded border border-purple-200">
+            <span className="text-gray-500">Hôte:</span> <span>api.cabgn.com</span>
+            <span className="text-gray-500">Port:</span> <span>5432</span>
+            <span className="text-gray-500">Base:</span> <span>postgres</span>
+            <span className="text-gray-500">Utilisateur:</span> <span>qgis_reader</span>
+            <span className="text-gray-500">Mot de passe:</span> <span>qgis_reader_2026</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

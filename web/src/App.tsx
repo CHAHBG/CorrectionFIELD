@@ -18,6 +18,7 @@ import { ProjectSettingsPanel } from '@/modules/admin/components/ProjectSettings
 import { MembersManager } from '@/modules/admin/components/MembersManager';
 import { SyncDashboard } from '@/modules/admin/components/SyncDashboard';
 import { ProjectsList } from '@/modules/projects/components/ProjectsList';
+import { WorkspaceSelector } from '@/modules/admin/components/WorkspaceSelector';
 import { useProjects } from '@/modules/projects/hooks/useProjects';
 import { useLayers } from '@/modules/layers/hooks/useLayers';
 
@@ -232,18 +233,16 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => switchMode('login')}
-            className={`rounded-md py-2 text-sm font-medium ${
-              mode === 'login' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
-            }`}
+            className={`rounded-md py-2 text-sm font-medium ${mode === 'login' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+              }`}
           >
             Se connecter
           </button>
           <button
             type="button"
             onClick={() => switchMode('signup')}
-            className={`rounded-md py-2 text-sm font-medium ${
-              mode === 'signup' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
-            }`}
+            className={`rounded-md py-2 text-sm font-medium ${mode === 'signup' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'
+              }`}
           >
             Créer un compte
           </button>
@@ -403,8 +402,8 @@ function OnlineIndicator() {
 // ── Main layout ─────────────────────────────────────
 function MainLayout() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { currentProject, setCurrentProject } = useProjectStore();
-  const { data: projects } = useProjects();
+  const { currentProject, setCurrentProject, activeOrganization } = useProjectStore();
+  const { data: projects } = useProjects(activeOrganization?.id);
   useLayers(currentProject?.id);
   const updateLayerInStore = useLayerStore((s) => s.updateLayer);
   const { layerPanelOpen, attributeTableOpen, identifiedFeature } = useMapStore();
@@ -516,14 +515,26 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
 
 // ── Root App ────────────────────────────────────────
 function App() {
+  const { activeOrganization } = useProjectStore();
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthGate>
           <Routes>
-            <Route path="/" element={<ProjectsList />} />
-            <Route path="/projects" element={<ProjectsList />} />
-            <Route path="/project/:projectId" element={<MainLayout />} />
+            <Route path="/" element={<WorkspaceSelector />} />
+
+            {/* Must have an active organization to see projects */}
+            <Route
+              path="/:orgSlug/projects"
+              element={activeOrganization ? <ProjectsList /> : <Navigate to="/" replace />}
+            />
+
+            <Route
+              path="/:orgSlug/project/:projectId"
+              element={activeOrganization ? <MainLayout /> : <Navigate to="/" replace />}
+            />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthGate>

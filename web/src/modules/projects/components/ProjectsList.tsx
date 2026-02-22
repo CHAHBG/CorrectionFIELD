@@ -4,15 +4,19 @@
 // =====================================================
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useProjects, useCreateProject, useDeleteProject } from '../hooks/useProjects';
 import { useProjectStore } from '@/stores/projectStore';
 import type { Project } from '@/shared/types';
 
 export function ProjectsList() {
   const navigate = useNavigate();
-  const { setCurrentProject } = useProjectStore();
-  const { data: projects, isLoading } = useProjects();
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const { setCurrentProject, activeOrganization } = useProjectStore();
+
+  // We need the orgId to fetch projects
+  const orgId = activeOrganization?.id;
+  const { data: projects, isLoading } = useProjects(orgId);
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
 
@@ -27,10 +31,10 @@ export function ProjectsList() {
 
   const selectProject = (project: Project) => {
     setCurrentProject(project);
-    navigate(`/project/${project.id}`);
+    navigate(`/${orgSlug}/project/${project.id}`);
   };
 
-  if (isLoading) {
+  if (isLoading || !activeOrganization) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -46,9 +50,17 @@ export function ProjectsList() {
       {/* Header */}
       <header className="border-b bg-white shadow-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">FieldCorrect</h1>
-            <p className="text-sm text-gray-500">Plateforme de correction géospatiale</p>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">{activeOrganization.name}</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-gray-900">Projets</h1>
+              <button
+                onClick={() => navigate('/')}
+                className="text-xs text-gray-400 hover:text-gray-600 underline"
+              >
+                (Changer d'espace)
+              </button>
+            </div>
           </div>
           <button
             onClick={() => setShowCreate(true)}
@@ -112,6 +124,7 @@ export function ProjectsList() {
             setShowCreate(false);
             selectProject(p);
           }}
+          orgId={activeOrganization.id}
           createProject={createProject}
         />
       )}
@@ -168,10 +181,12 @@ function ProjectCard({
 function CreateProjectModal({
   onClose,
   onCreated,
+  orgId,
   createProject,
 }: {
   onClose: () => void;
   onCreated: (p: Project) => void;
+  orgId: string;
   createProject: ReturnType<typeof useCreateProject>;
 }) {
   const [name, setName] = useState('');
@@ -192,6 +207,7 @@ function CreateProjectModal({
       {
         name: name.trim(),
         slug: slug.trim() || autoSlug(name),
+        org_id: orgId,
         description: description.trim() || undefined,
       },
       {

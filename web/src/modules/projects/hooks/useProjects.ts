@@ -8,10 +8,11 @@ import type { Project, ProjectSettings } from '@/shared/types';
 
 const PROJECTS_KEY = ['projects'];
 
-export function useProjects() {
+export function useProjects(orgId: string | undefined) {
   return useQuery({
-    queryKey: PROJECTS_KEY,
-    queryFn: () => projectsApi.getMyProjects(),
+    queryKey: [...PROJECTS_KEY, orgId],
+    queryFn: () => (orgId ? projectsApi.getMyProjects(orgId) : Promise.resolve([])),
+    enabled: !!orgId,
   });
 }
 
@@ -27,7 +28,7 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: { name: string; slug: string; description?: string; settings?: Partial<ProjectSettings> }) =>
+    mutationFn: (params: { name: string; slug: string; org_id: string; description?: string; settings?: Partial<ProjectSettings> }) =>
       projectsApi.create(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
