@@ -40,10 +40,7 @@ export function LayerRenderer({ layer }: LayerRendererProps) {
           type="fill"
           paint={paintProps.fill as Record<string, unknown>}
           layout={{ visibility }}
-          filter={['any',
-            ['==', '$type', 'Polygon'],
-            ['==', '$type', 'MultiPolygon'],
-          ]}
+          filter={['==', '$type', 'Polygon']}
         />
       )}
 
