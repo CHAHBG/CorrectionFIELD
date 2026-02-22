@@ -59,6 +59,7 @@ export default function ProjectsScreen() {
           settings: p.settings ?? {},
           created_at: p.created_at,
           updated_at: p.updated_at ?? p.created_at,
+          role: p.project_members?.[0]?.role ?? 'viewer',
         })),
       );
     } catch (e) {

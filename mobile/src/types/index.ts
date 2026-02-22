@@ -99,7 +99,7 @@ export interface Correction {
   id: string;
   feature_id: string;
   layer_id: string;
-  author_id: string;
+  user_id: string;
   status: CorrectionStatus;
   props_patch: Record<string, any>;
   geom_corrected?: Geometry | null;
@@ -119,6 +119,7 @@ export interface Project {
   settings: ProjectSettings;
   created_at: string;
   updated_at: string;
+  role?: MemberRole; // User's role in this project
 }
 
 export interface ProjectSettings {

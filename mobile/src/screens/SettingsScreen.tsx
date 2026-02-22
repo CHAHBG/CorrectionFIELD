@@ -12,13 +12,11 @@ import {
   Alert,
 } from 'react-native';
 import RNFS from 'react-native-fs';
-import { launchImageLibrary } from 'react-native-image-picker';
 
 import { localDB } from '@/infra/db/LocalDB';
 import { useLayerStore } from '@/stores/layerStore';
 import { Card, Button, Divider } from '@/shared/components';
 import { colors, spacing, typography } from '@/shared/theme';
-import uuid from 'react-native-uuid';
 
 export default function SettingsScreen() {
   const { loadLayers } = useLayerStore();
@@ -42,90 +40,6 @@ export default function SettingsScreen() {
     })();
   }, []);
 
-  /* ── Import GeoPackage ── */
-  const handleImportGpkg = async () => {
-    try {
-      // Use file picker to select .gpkg
-      const result = await launchImageLibrary({
-        mediaType: 'mixed',
-        selectionLimit: 1,
-      });
-
-      if (result.assets && result.assets[0]?.uri) {
-        const uri = result.assets[0].uri;
-        const fileName = result.assets[0].fileName ?? 'import.gpkg';
-
-        // Copy to app documents
-        const destPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-        await RNFS.copyFile(uri, destPath);
-
-        // Import as a layer
-        const layerName = fileName.replace('.gpkg', '').replace(/_/g, ' ');
-        const layerId = String(uuid.v4());
-
-        await localDB.upsertLayer({
-          id: layerId,
-          name: layerName,
-          geometry_type: 'Polygon',
-          fields: [],
-          style: {
-            fill_color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
-            stroke_color: '#333333',
-            stroke_width: 2,
-            opacity: 0.7,
-          },
-          visible: true,
-          sort_order: 0,
-        });
-
-        // Attach and read features from GeoPackage
-        try {
-          localDB.attachGeoPackage(destPath, 'import_gpkg');
-
-          const db = localDB.getDB();
-          // Try to find the main feature table
-          const tables = await db.execute(
-            "SELECT table_name FROM import_gpkg.gpkg_contents WHERE data_type = 'features' LIMIT 1",
-          );
-
-          if (tables.rows?.[0]) {
-            const tableName = String(tables.rows[0].table_name);
-            const features = await db.execute(
-              `SELECT *, hex(geom) as geom_hex FROM import_gpkg."${tableName}" LIMIT 10000`,
-            );
-
-            let imported = 0;
-            for (const row of features.rows ?? []) {
-              await localDB.upsertFeature({
-                id: String(uuid.v4()),
-                layer_id: layerId,
-                geom: null, // Would need WKB parsing
-                props: row,
-                status: 'draft',
-                dirty: false,
-              });
-              imported++;
-            }
-
-            Alert.alert(
-              'Import réussi',
-              `${imported} entités importées dans la couche "${layerName}"`,
-            );
-          }
-
-          localDB.detachGeoPackage('import_gpkg');
-        } catch (gpkgErr: any) {
-          console.warn('[Import] GPKG read', gpkgErr);
-          Alert.alert('Import partiel', 'Couche créée mais les entités n\'ont pas pu être lues');
-        }
-
-        await loadLayers();
-      }
-    } catch (e: any) {
-      Alert.alert('Erreur', e.message ?? 'Erreur lors de l\'import');
-    }
-  };
-
   /* ── Clear local data ── */
   const handleClearData = () => {
     Alert.alert(
@@ -138,10 +52,10 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             const db = localDB.getDB();
-            db.execute('DELETE FROM features');
-            db.execute('DELETE FROM corrections');
-            db.execute('DELETE FROM sync_queue');
-            db.execute('DELETE FROM layers');
+            await db.execute('DELETE FROM features');
+            await db.execute('DELETE FROM corrections');
+            await db.execute('DELETE FROM sync_queue');
+            await db.execute('DELETE FROM layers');
             await loadLayers();
             Alert.alert('Données supprimées');
           },
@@ -181,12 +95,6 @@ export default function SettingsScreen() {
           <Text style={typography.body}>Base de données locale</Text>
           <Text style={[typography.bodyBold, { color: colors.textSecondary }]}>{dbSize}</Text>
         </View>
-        <Button
-          title="Importer GeoPackage"
-          icon="database-import"
-          onPress={handleImportGpkg}
-          style={{ marginTop: spacing.sm }}
-        />
       </Card>
 
       {/* Danger zone */}

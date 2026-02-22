@@ -10,7 +10,7 @@ export class LocalDB {
   private static instance: LocalDB;
   private db: DB | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): LocalDB {
     if (!LocalDB.instance) {
@@ -199,7 +199,7 @@ export class LocalDB {
       `INSERT OR REPLACE INTO layers (id, project_id, name, geometry_type, source_crs, fields, style, visible, sort_order, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
       [l.id, l.project_id, l.name, l.geometry_type, l.source_crs ?? 'EPSG:4326',
-       JSON.stringify(l.fields ?? []), JSON.stringify(l.style ?? {}), l.visible ? 1 : 0, l.sort_order ?? 0]
+      JSON.stringify(l.fields ?? []), JSON.stringify(l.style ?? {}), l.visible ? 1 : 0, l.sort_order ?? 0]
     );
   }
 
@@ -222,12 +222,19 @@ export class LocalDB {
   async insertCorrection(c: any): Promise<void> {
     const conn = this.getDB();
     await conn.execute(
-      `INSERT INTO corrections (id, feature_id, layer_id, user_id, props_patch, geom_corrected, notes, gps_lat, gps_lng, gps_accuracy, media_urls, status, dirty)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [c.id, c.feature_id, c.layer_id, c.user_id,
-       JSON.stringify(c.props_patch ?? {}), c.geom_corrected ? JSON.stringify(c.geom_corrected) : null,
-       c.notes ?? '', c.gps_lat ?? null, c.gps_lng ?? null, c.gps_accuracy ?? null,
-       JSON.stringify(c.media_urls ?? []), c.status ?? 'submitted', c.dirty ? 1 : 0]
+      `INSERT OR REPLACE INTO corrections (id, feature_id, layer_id, user_id, props_patch, geom_corrected, notes, gps_lat, gps_lng, gps_accuracy, media_urls, status, dirty, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        c.id, c.feature_id, c.layer_id, c.user_id,
+        JSON.stringify(c.props_patch ?? {}),
+        c.geom_corrected ? JSON.stringify(c.geom_corrected) : null,
+        c.notes ?? c.comment ?? '',
+        c.gps_lat ?? null, c.gps_lng ?? null, c.gps_accuracy ?? null,
+        JSON.stringify(c.media_urls ?? []),
+        c.status ?? 'submitted',
+        c.dirty ? 1 : 0,
+        c.created_at ?? new Date().toISOString()
+      ]
     );
   }
 

@@ -14,14 +14,41 @@ interface LayerRendererProps {
 
 export function LayerRenderer({ layer }: LayerRendererProps) {
   const { data: features } = useFeatures(layer.id);
-  const geojson = useMemo(() => featuresToGeoJSON(features), [features]);
+  const geojson = useMemo(() => {
+    const fc = featuresToGeoJSON(features);
+    console.log(`[LayerRenderer] ${layer.name} (${layer.id}): ${fc.features.length} features, geometryType=${layer.geometryType}, visible=${layer.visible}`);
+    return fc;
+  }, [features, layer.id, layer.name, layer.geometryType, layer.visible]);
 
-  const paintProps = useMemo(
-    () => compileStyle(layer.style),
-    [layer.style]
-  );
+  const paintProps = useMemo(() => {
+    // If layer has status field but is simple, wrap it with status style
+    if (layer.style.mode === 'simple') {
+      const statusStyle = compileStyle({
+        ...layer.style,
+        mode: 'rule-based',
+        ruleBased: {
+          field: 'status',
+          defaultStyle: layer.style.simple!,
+          rules: [
+            { value: 'pending', label: 'En attente', style: { fillColor: '#4CAF50', strokeColor: '#1B5E20' } },
+            { value: 'corrected', label: 'Corrigée', style: { fillColor: '#4CAF50', strokeColor: '#1B5E20' } },
+            { value: 'validated', label: 'Validée', style: { fillColor: '#2E7D32', strokeColor: '#1B5E20' } },
+            { value: 'rejected', label: 'Rejetée', style: { fillColor: '#F44336', strokeColor: '#B71C1C' } },
+          ]
+        }
+      });
+      return statusStyle;
+    }
+    return compileStyle(layer.style);
+  }, [layer.style]);
 
   const visibility = layer.visible ? 'visible' : 'none';
+
+  // Determine which sub-layers to render based on geometry type.
+  // We render both fill+stroke for polygon-like types, and circle for point-like types.
+  const isPolygonLike = ['Polygon', 'MultiPolygon'].includes(layer.geometryType);
+  const isLineLike = ['LineString', 'MultiLineString'].includes(layer.geometryType);
+  const isPointLike = ['Point', 'MultiPoint'].includes(layer.geometryType);
 
   return (
     <Source
@@ -33,19 +60,19 @@ export function LayerRenderer({ layer }: LayerRendererProps) {
       clusterMaxZoom={14}
       clusterRadius={50}
     >
-      {/* Fill for polygons */}
-      {(layer.geometryType === 'Polygon' || layer.geometryType === 'MultiPolygon') && (
+      {/* Fill for polygons — always render, let MapLibre filter by $type */}
+      {(isPolygonLike || (!isLineLike && !isPointLike)) && (
         <MapLayer
           id={`${layer.id}-fill`}
           type="fill"
           paint={paintProps.fill as Record<string, unknown>}
           layout={{ visibility }}
-          filter={['==', '$type', 'Polygon']}
+          filter={['any', ['==', '$type', 'Polygon']]}
         />
       )}
 
       {/* Stroke for lines and polygon outlines */}
-      {(layer.geometryType !== 'Point' && layer.geometryType !== 'MultiPoint') && (
+      {!isPointLike && (
         <MapLayer
           id={`${layer.id}-stroke`}
           type="line"
@@ -55,7 +82,7 @@ export function LayerRenderer({ layer }: LayerRendererProps) {
       )}
 
       {/* Circle for points */}
-      {(layer.geometryType === 'Point' || layer.geometryType === 'MultiPoint') && (
+      {isPointLike && (
         <MapLayer
           id={`${layer.id}-circle`}
           type="circle"

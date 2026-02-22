@@ -22,7 +22,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ProfileScreen() {
   const nav = useNavigation<Nav>();
-  const { user, isAuthenticated, logout } = useProjectStore();
+  const { user, isAuthenticated, logout, currentRole } = useProjectStore();
+  const displayRole = currentRole || user?.role;
 
   const handleLogout = async () => {
     await logout();
@@ -42,9 +43,9 @@ export default function ProfileScreen() {
         <Text style={[typography.body, { color: colors.textMuted }]}>
           {user?.email || 'Mode hors-ligne'}
         </Text>
-        {user?.role && (
+        {displayRole && (
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{user.role.toUpperCase()}</Text>
+            <Text style={styles.roleText}>{displayRole.toUpperCase()}</Text>
           </View>
         )}
       </View>

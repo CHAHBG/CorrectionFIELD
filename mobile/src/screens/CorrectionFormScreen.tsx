@@ -44,19 +44,31 @@ export default function CorrectionFormScreen() {
   const [gpsPoint, setGpsPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  /* ── Load feature & layer ── */
+  /* ── Load feature, layer & existing correction ── */
   useEffect(() => {
     (async () => {
       const f = await localDB.getFeatureById(params.featureId);
       setFeature(f);
 
-      // Pre-populate form with current props
-      if (f?.props) {
-        setFormValues({ ...f.props });
-      }
-
       const l = layers.find((x) => x.id === params.layerId) ?? null;
       setLayer(l);
+
+      // 1. Initial form values from feature props
+      let initialValues = f?.props ? { ...f.props } : {};
+
+      // 2. Load latest pending correction to resume work
+      const existing = await localDB.getCorrectionsByFeature(params.featureId);
+      const latest = existing.find((c) => c.status === 'pending' || c.status === 'submitted');
+
+      if (latest) {
+        setComment(latest.comment || latest.notes || '');
+        if (latest.props_patch) {
+          initialValues = { ...initialValues, ...latest.props_patch };
+        }
+        // If we had photos on the server, we might want them here too, but for now local list
+      }
+
+      setFormValues(initialValues);
     })();
   }, [layers, params.featureId, params.layerId]);
 
@@ -100,7 +112,12 @@ export default function CorrectionFormScreen() {
       // Build props patch (only changed values)
       const propsPatch: Record<string, any> = {};
       for (const [key, val] of Object.entries(formValues)) {
-        if (feature.props?.[key] !== val) {
+        const original = feature.props?.[key];
+
+        // Normalize comparison (handle null vs undefined, string vs number)
+        const isDifferent = String(original ?? '') !== String(val ?? '');
+
+        if (isDifferent) {
           propsPatch[key] = val;
         }
       }
@@ -117,7 +134,7 @@ export default function CorrectionFormScreen() {
       await addCorrection({
         feature_id: params.featureId,
         layer_id: params.layerId,
-        author_id: user?.id ?? 'anonymous',
+        user_id: user?.id ?? 'anonymous',
         status: 'pending',
         props_patch: propsPatch,
         geom_corrected: geomCorrected,

@@ -2,7 +2,7 @@
 //  FieldCorrect — Import Wizard (step-by-step data import)
 // =====================================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Input, Spinner } from '@/shared/ui/components';
 import { parseGeoJson, parseCsvGeo, parseGpkg, type ParseResult } from '../parsers';
@@ -18,7 +18,7 @@ type Step = 'upload' | 'configure' | 'preview' | 'importing';
 export function ImportWizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('upload');
   const [parseResults, setParseResults] = useState<ParseResult[]>([]);
-  const [layerNames, setLayerNames] = useState<string[]>([]);
+  const [configs, setConfigs] = useState<{ name: string; crs: string }[]>([]);
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [csvOptions, setCsvOptions] = useState({ latCol: 'latitude', lngCol: 'longitude' });
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,10 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
 
       setFileTypes(exts);
       setParseResults(parsed);
-      setLayerNames(parsed.map((p) => p.name));
+      setConfigs(parsed.map(p => ({
+        name: p.name,
+        crs: p.crs ?? 'EPSG:4326'
+      })));
       setActivePreviewIndex(0);
       setStep('configure');
 
@@ -72,7 +75,7 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-xl rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Importer des données</h2>
@@ -84,11 +87,10 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
           {(['upload', 'configure', 'preview', 'importing'] as Step[]).map((s, i) => (
             <div
               key={s}
-              className={`h-1 flex-1 rounded ${
-                i <= (['upload', 'configure', 'preview', 'importing'].indexOf(step))
-                  ? 'bg-blue-500'
-                  : 'bg-gray-200'
-              }`}
+              className={`h-1 flex-1 rounded ${i <= (['upload', 'configure', 'preview', 'importing'].indexOf(step))
+                ? 'bg-blue-500'
+                : 'bg-gray-200'
+                }`}
             />
           ))}
         </div>
@@ -107,14 +109,8 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
           {step === 'configure' && parseResults.length > 0 && (
             <ConfigureStep
               results={parseResults}
-              layerNames={layerNames}
-              setLayerNameAt={(index, name) => {
-                setLayerNames((current) => {
-                  const next = [...current];
-                  next[index] = name;
-                  return next;
-                });
-              }}
+              configs={configs}
+              setConfigs={setConfigs}
               onBack={() => setStep('upload')}
               onNext={() => setStep('preview')}
             />
@@ -122,7 +118,7 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
           {step === 'preview' && parseResults.length > 0 && (
             <PreviewStep
               results={parseResults}
-              layerNames={layerNames}
+              configs={configs}
               activeIndex={activePreviewIndex}
               setActiveIndex={setActivePreviewIndex}
               onBack={() => setStep('configure')}
@@ -132,7 +128,7 @@ export function ImportWizard({ onClose }: { onClose: () => void }) {
           {step === 'importing' && parseResults.length > 0 && (
             <ImportingStep
               results={parseResults}
-              layerNames={layerNames}
+              configs={configs}
               onClose={onClose}
             />
           )}
@@ -162,9 +158,8 @@ function UploadStep({
   return (
     <div className="space-y-4">
       <div
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition ${
-          dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-        }`}
+        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition ${dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
@@ -221,16 +216,23 @@ function UploadStep({
   );
 }
 
+const COMMON_CRSS = [
+  { value: 'EPSG:4326', label: 'WGS 84 (GPS)' },
+  { value: 'EPSG:32628', label: 'UTM Zone 28N' },
+  { value: 'EPSG:32629', label: 'UTM Zone 29N' },
+  { value: 'EPSG:3857', label: 'Web Mercator' },
+];
+
 function ConfigureStep({
   results,
-  layerNames,
-  setLayerNameAt,
+  configs,
+  setConfigs,
   onBack,
   onNext,
 }: {
   results: ParseResult[];
-  layerNames: string[];
-  setLayerNameAt: (index: number, n: string) => void;
+  configs: { name: string; crs: string }[];
+  setConfigs: React.Dispatch<React.SetStateAction<{ name: string; crs: string }[]>>;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -240,33 +242,56 @@ function ConfigureStep({
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-gray-700">Configuration des couches</h3>
 
-      <div className="max-h-44 overflow-y-auto rounded border">
+      <div className="max-h-60 overflow-y-auto rounded border">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 sticky top-0">
             <tr className="text-left text-gray-500">
-              <th className="px-2 py-2">Couche</th>
-              <th className="px-2 py-2">Géométrie</th>
+              <th className="px-2 py-2">Nom de la couche</th>
+              <th className="px-2 py-2">Projection (CRS)</th>
               <th className="px-2 py-2">Features</th>
             </tr>
           </thead>
           <tbody>
             {results.map((result, index) => (
               <tr key={`${result.name}-${index}`} className="border-t">
-                <td className="px-2 py-2 min-w-[220px]">
+                <td className="px-2 py-2 min-w-[200px]">
                   <Input
-                    value={layerNames[index] ?? ''}
-                    onChange={(e) => setLayerNameAt(index, e.target.value)}
+                    value={configs[index]?.name ?? ''}
+                    onChange={(e) => {
+                      const next = [...configs];
+                      next[index] = { ...next[index], name: e.target.value };
+                      setConfigs(next);
+                    }}
                   />
                 </td>
-                <td className="px-2 py-2">{result.geometryType}</td>
-                <td className="px-2 py-2">{result.features.length.toLocaleString()}</td>
+                <td className="px-2 py-2">
+                  <select
+                    className="w-full rounded border border-gray-300 px-1 py-1 text-xs"
+                    value={configs[index]?.crs ?? 'EPSG:4326'}
+                    onChange={(e) => {
+                      const next = [...configs];
+                      next[index] = { ...next[index], crs: e.target.value };
+                      setConfigs(next);
+                    }}
+                  >
+                    {COMMON_CRSS.map(crs => (
+                      <option key={crs.value} value={crs.value}>{crs.label}</option>
+                    ))}
+                    {configs[index] && !COMMON_CRSS.find(c => c.value === configs[index].crs) && (
+                      <option value={configs[index].crs}>{configs[index].crs}</option>
+                    )}
+                  </select>
+                </td>
+                <td className="px-2 py-2 text-gray-500 whitespace-nowrap">
+                  {result.geometryType} ({result.features.length.toLocaleString()})
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm">
+      <div className="grid grid-cols-3 gap-4 text-xs">
         <div className="bg-gray-50 rounded p-3">
           <span className="text-gray-500">Couches</span>
           <p className="font-medium">{results.length}</p>
@@ -281,6 +306,10 @@ function ConfigureStep({
         </div>
       </div>
 
+      <div className="rounded bg-amber-50 p-2 text-[11px] text-amber-700">
+        📌 <strong>Conseil :</strong> Si vos données s'affichent au mauvais endroit (ex: coordonnées &gt; 180), changez la projection vers <strong>UTM Zone 28N</strong>.
+      </div>
+
       <div className="flex justify-between">
         <Button variant="ghost" onClick={onBack}>← Retour</Button>
         <Button onClick={onNext}>Aperçu →</Button>
@@ -291,21 +320,22 @@ function ConfigureStep({
 
 function PreviewStep({
   results,
-  layerNames,
+  configs,
   activeIndex,
   setActiveIndex,
   onBack,
   onImport,
 }: {
   results: ParseResult[];
-  layerNames: string[];
+  configs: { name: string; crs: string }[];
   activeIndex: number;
   setActiveIndex: (index: number) => void;
   onBack: () => void;
   onImport: () => void;
 }) {
   const result = results[activeIndex];
-  const layerName = layerNames[activeIndex] ?? result.name;
+  const config = configs[activeIndex];
+  const layerName = config?.name ?? result.name;
   const preview = result.features.slice(0, 5);
   const totalFeatures = results.reduce((acc, item) => acc + item.features.length, 0);
 
@@ -320,7 +350,7 @@ function PreviewStep({
         >
           {results.map((item, index) => (
             <option key={`${item.name}-${index}`} value={index}>
-              {layerNames[index] ?? item.name} ({item.features.length.toLocaleString()} features)
+              {configs[index]?.name ?? item.name} ({item.features.length.toLocaleString()} features)
             </option>
           ))}
         </select>
@@ -369,22 +399,29 @@ function PreviewStep({
 
 function ImportingStep({
   results,
-  layerNames,
+  configs,
   onClose,
 }: {
   results: ParseResult[];
-  layerNames: string[];
+  configs: { name: string; crs: string }[];
   onClose: () => void;
 }) {
-  const { currentProject } = useProjectStore();
+  const currentProject = useProjectStore((s) => s.currentProject);
   const addLayer = useLayerStore((s) => s.addLayer);
   const queryClient = useQueryClient();
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
   const [progress, setProgress] = useState(0);
   const [currentLayer, setCurrentLayer] = useState('');
   const [currentStep, setCurrentStep] = useState('Préparation de l\'import…');
   const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const hasStarted = useRef(false);
 
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -417,8 +454,9 @@ function ImportingStep({
 
     for (let layerIndex = 0; layerIndex < results.length; layerIndex++) {
       const result = results[layerIndex];
-      const layerName = layerNames[layerIndex] ?? result.name;
-      const sourceCrs = result.crs ?? 'EPSG:4326';
+      const config = configs[layerIndex];
+      const layerName = config?.name ?? result.name;
+      const sourceCrs = config?.crs ?? 'EPSG:4326';
       setCurrentLayer(layerName);
       setCurrentStep(`Création de la couche ${layerIndex + 1}/${results.length}…`);
 
@@ -452,8 +490,9 @@ function ImportingStep({
             sourceCrs,
             'EPSG:4326'
           ).features;
-        } catch {
-          throw new Error(`Impossible de reprojeter ${layerName} depuis ${sourceCrs} vers EPSG:4326`);
+        } catch (e) {
+          console.error('[ImportingStep] Reprojection failed', e);
+          throw new Error(`Impossible de reprojeter ${layerName} depuis ${sourceCrs} vers EPSG:4326. Vérifiez que la projection est enregistrée.`);
         }
       }
 
@@ -481,11 +520,19 @@ function ImportingStep({
       queryClient.invalidateQueries({ queryKey: ['layers'] }),
       new Promise<void>((resolve) => setTimeout(resolve, 5000)),
     ]);
-  }, [addLayer, currentProject, layerNames, queryClient, results]);
+  }, [addLayer, currentProject, configs, queryClient, results]);
 
   useEffect(() => {
-    let cancelled = false;
+    // Only start if not already started (or if it's a retry)
+    if (hasStarted.current && attempt === 0) {
+      console.log('[ImportingStep] Effect re-run detected, ignoring since already started.');
+      return;
+    }
 
+    console.log('[ImportingStep] Starting/Restarting import process (attempt:', attempt, ')');
+    hasStarted.current = true;
+
+    // Initialize state
     setStatus('pending');
     setErrorMessage(null);
     setProgress(0);
@@ -494,16 +541,25 @@ function ImportingStep({
 
     runImport()
       .then(() => {
-        if (!cancelled) setStatus('success');
+        if (isMounted.current) {
+          console.log('[ImportingStep] Import finished successfully');
+          setStatus('success');
+        } else {
+          console.warn('[ImportingStep] Import finished but component was unmounted');
+        }
       })
       .catch((error: unknown) => {
-        if (cancelled) return;
+        if (!isMounted.current) {
+          console.warn('[ImportingStep] Import failed but component was unmounted', error);
+          return;
+        }
+        console.error('[ImportingStep] Import failed:', error);
         setStatus('error');
         setErrorMessage(error instanceof Error ? error.message : "Erreur lors de l'import");
       });
 
     return () => {
-      cancelled = true;
+      console.log('[ImportingStep] Cleaning up effect');
     };
   }, [attempt, runImport]);
 

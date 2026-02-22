@@ -159,7 +159,7 @@ export function useMapEvents(
         return;
       }
 
-      const featureId = features[0].id?.toString() ?? features[0].properties?.id;
+      const featureId = features[0].properties?.id ?? features[0].id?.toString();
 
       if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
         store.toggleFeatureSelection(featureId);
@@ -204,7 +204,7 @@ export function useMapEvents(
       });
 
       const featureId = features.length > 0
-        ? (features[0].id?.toString() ?? features[0].properties?.id ?? null)
+        ? (features[0].properties?.id ?? features[0].id?.toString() ?? null)
         : null;
 
       setHoveredFeatureId(featureId);

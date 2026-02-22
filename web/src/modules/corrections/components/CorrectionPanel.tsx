@@ -208,7 +208,43 @@ function ActionBar({ feature }: { feature: AppFeature }) {
 
   const validateMutation = useMutation({
     mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+
+      // 1. Get latest correction to apply
+      const corrections = await correctionsApi.getByFeature(feature.id);
+      const latest = corrections.find((c) => c.status === 'submitted');
+
+      if (latest) {
+        // Apply props patch
+        if (latest.propsPatch) {
+          const newProps = { ...feature.props, ...latest.propsPatch };
+          await featuresApi.updateProps(feature.id, newProps);
+        }
+        // Apply geom if corrected
+        if (latest.geomCorrected) {
+          await featuresApi.updateGeometry(feature.id, latest.geomCorrected);
+        }
+        // Mark correction as validated
+        await correctionsApi.validate(latest.id);
+      }
+
+      // 2. Finalize feature status
       await featuresApi.updateStatus(feature.id, 'validated');
+
+      // Update metadata
+      const { error } = await supabase
+        .from('features')
+        .update({
+          validated_by: user.id,
+          validated_at: new Date().toISOString(),
+          locked_by: null,
+          locked_at: null,
+          lock_expires: null
+        })
+        .eq('id', feature.id);
+
+      if (error) throw error;
     },
     onSuccess: refreshFeature,
   });
@@ -227,11 +263,11 @@ function ActionBar({ feature }: { feature: AppFeature }) {
     <div className="flex flex-col gap-1 border-t px-3 py-2 bg-gray-50 shrink-0">
       {(lockMutation.error || unlockMutation.error || submitMutation.error ||
         validateMutation.error || rejectMutation.error) && (
-        <p className="text-xs text-red-600 mb-1">
-          {(lockMutation.error ?? unlockMutation.error ?? submitMutation.error ??
-            validateMutation.error ?? rejectMutation.error)?.message}
-        </p>
-      )}
+          <p className="text-xs text-red-600 mb-1">
+            {(lockMutation.error ?? unlockMutation.error ?? submitMutation.error ??
+              validateMutation.error ?? rejectMutation.error)?.message}
+          </p>
+        )}
       <div className="flex gap-2">
         {feature.status === 'pending' && (
           <Button

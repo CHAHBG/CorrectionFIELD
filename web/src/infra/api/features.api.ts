@@ -183,24 +183,29 @@ function readFloat64(blob: Uint8Array, offset: number, littleEndian: boolean): n
   return view.getFloat64(offset, littleEndian);
 }
 
-function snakeToFeature(row: Record<string, unknown>): AppFeature {
-  return {
-    id: row.id as string,
-    layerId: row.layer_id as string,
-    geom: parseGeometryValue(row.geom),
-    props: (row.props ?? {}) as Record<string, unknown>,
-    status: (row.status ?? 'pending') as FeatureStatus,
-    lockedBy: row.locked_by as string | null ?? null,
-    lockedAt: row.locked_at as string | null ?? null,
-    lockExpires: row.lock_expires as string | null ?? null,
-    correctedBy: row.corrected_by as string | null ?? null,
-    correctedAt: row.corrected_at as string | null ?? null,
-    validatedBy: row.validated_by as string | null ?? null,
-    validatedAt: row.validated_at as string | null ?? null,
-    sourceFile: row.source_file as string | undefined,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
+function snakeToFeature(row: Record<string, unknown>): AppFeature | null {
+  try {
+    return {
+      id: row.id as string,
+      layerId: row.layer_id as string,
+      geom: parseGeometryValue(row.geom),
+      props: (row.props ?? {}) as Record<string, unknown>,
+      status: (row.status ?? 'pending') as FeatureStatus,
+      lockedBy: row.locked_by as string | null ?? null,
+      lockedAt: row.locked_at as string | null ?? null,
+      lockExpires: row.lock_expires as string | null ?? null,
+      correctedBy: row.corrected_by as string | null ?? null,
+      correctedAt: row.corrected_at as string | null ?? null,
+      validatedBy: row.validated_by as string | null ?? null,
+      validatedAt: row.validated_at as string | null ?? null,
+      sourceFile: row.source_file as string | undefined,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    };
+  } catch (e) {
+    console.warn('[features.api] failed to parse feature', row.id, e);
+    return null;
+  }
 }
 
 export const featuresApi = {
@@ -211,8 +216,14 @@ export const featuresApi = {
       .eq('layer_id', layerId)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    return (data ?? []).map(snakeToFeature);
+    if (error) {
+      console.error('[features.api] getByLayer error', error);
+      throw error;
+    }
+    console.log(`[features.api] getByLayer(${layerId}): ${(data ?? []).length} rows`);
+    const parsed = (data ?? []).map(snakeToFeature).filter((f): f is AppFeature => f !== null);
+    console.log(`[features.api] parsed ${parsed.length} features (${(data ?? []).length - parsed.length} skipped)`);
+    return parsed;
   },
 
   async getInViewport(layerIds: string[], bbox: [number, number, number, number]): Promise<AppFeature[]> {

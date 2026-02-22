@@ -9,23 +9,49 @@ import {
   Alert,
   Platform,
   PermissionsAndroid,
+  TouchableOpacity,
 } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import Geolocation from 'react-native-geolocation-service';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import booleanIntersects from '@turf/boolean-intersects';
+import { point as turfPoint, feature as turfFeature } from '@turf/helpers';
+
 import { useMapStore } from '@/stores/mapStore';
 import { useLayerStore } from '@/stores/layerStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { localDB } from '@/infra/db/LocalDB';
-import { AppFeature, RootStackParamList, MapTool } from '@/types';
-import { FAB, ToolbarBtn } from '@/shared/components';
+import { AppFeature, RootStackParamList } from '@/types';
+import { FAB } from '@/shared/components';
 import { colors, spacing, shadow } from '@/shared/theme';
+import { syncEngine } from '@/infra/sync/SyncEngine';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// Initialize MapLibre
-MapLibreGL.setAccessToken(null);
+const OSM_STYLE: any = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '&copy; OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'osm-tiles',
+      type: 'raster',
+      source: 'osm',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
 
 export default function MapScreen() {
   const nav = useNavigation<Nav>();
@@ -34,12 +60,10 @@ export default function MapScreen() {
 
   const {
     viewport,
-    activeTool,
     selectedFeatureIds,
     gpsEnabled,
     followGps,
     currentPosition,
-    setActiveTool,
     selectFeatures,
     setGpsEnabled,
     setFollowGps,
@@ -47,22 +71,75 @@ export default function MapScreen() {
   } = useMapStore();
 
   const { layers } = useLayerStore();
+  const { currentProject } = useProjectStore();
   const [featuresByLayer, setFeaturesByLayer] = useState<Record<string, AppFeature[]>>({});
+  const [zone, setZone] = useState<GeoJSON.Feature | null>(null);
 
-  /* ── Load features for visible layers ── */
+  /* ── Load features & zone ── */
   useEffect(() => {
     (async () => {
+      // 1. Load project zone first if possible
+      let activeZone: any = null;
+      if (currentProject) {
+        try {
+          const db = localDB.getDB();
+          const q = await db.execute('SELECT value FROM app_meta WHERE key = ?', [`zone_${currentProject.id}`]);
+          if (q.rows?.[0]?.value) {
+            activeZone = JSON.parse(q.rows[0].value as string);
+            setZone(activeZone);
+          } else {
+            setZone(null);
+          }
+        } catch (e) {
+          console.warn('[MapScreen] zone load', e);
+        }
+      }
+
+      // 2. Load features per layer
       const result: Record<string, AppFeature[]> = {};
+      const zoneFeature = activeZone ? turfFeature(activeZone as any) : null;
+
       for (const layer of layers.filter((l) => l.visible)) {
         try {
-          result[layer.id] = await localDB.getFeaturesByLayer(layer.id);
+          let features = await localDB.getFeaturesByLayer(layer.id);
+
+          // Visibility Filter: Hide features outside assigned zone
+          if (zoneFeature) {
+            features = features.filter((f) => {
+              if (!f.geom) { return false; }
+              try {
+                return booleanIntersects(turfFeature(f.geom), zoneFeature);
+              } catch (e) {
+                return true; // Fallback
+              }
+            });
+          }
+
+          result[layer.id] = features;
         } catch (e) {
           console.warn(`[MapScreen] features for ${layer.id}`, e);
         }
       }
       setFeaturesByLayer(result);
     })();
-  }, [layers]);
+  }, [layers, currentProject]);
+
+  /* ── Geofence monitor ── */
+  const [wasInZone, setWasInZone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!zone || !currentPosition) {
+      return;
+    }
+
+    const userPt = turfPoint([currentPosition.longitude, currentPosition.latitude]);
+    const isUserIn = booleanPointInPolygon(userPt, zone as any);
+
+    if (wasInZone === true && isUserIn === false) {
+      Alert.alert('Attention', 'vous etes en dehors de la zone qui vius est assigné');
+    }
+    setWasInZone(isUserIn);
+  }, [currentPosition, zone, wasInZone]);
 
   /* ── GPS ── */
   useEffect(() => {
@@ -112,16 +189,10 @@ export default function MapScreen() {
 
   /* ── Feature press ── */
   const handleFeaturePress = useCallback(
-    (featureId: string, layerId: string) => {
-      if (activeTool === 'select') {
-        selectFeatures([featureId]);
-      } else if (activeTool === 'correct') {
-        nav.navigate('CorrectionForm', { featureId, layerId });
-      } else {
-        selectFeatures([featureId]);
-      }
+    async (featureId: string, _layerId: string) => {
+      selectFeatures([featureId]);
     },
-    [activeTool, nav, selectFeatures],
+    [selectFeatures],
   );
 
   /* ── Build GeoJSON sources per layer ── */
@@ -152,10 +223,27 @@ export default function MapScreen() {
             })),
         };
 
-        const fillColor = layer.style?.fill_color ?? colors.primary;
-        const lineColor = layer.style?.stroke_color ?? colors.primaryDark;
+        const baseFillColor = layer.style?.fill_color ?? colors.primary;
+        const baseLineColor = layer.style?.stroke_color ?? colors.primaryDark;
         const lineWidth = layer.style?.stroke_width ?? 2;
         const opacity = layer.style?.opacity ?? 0.6;
+
+        // Status coloring
+        const pendingColor = '#22c55e'; // Green-500
+
+        const fillColor: any = [
+          'match',
+          ['get', '_status'],
+          'pending', pendingColor,
+          baseFillColor,
+        ];
+
+        const lineColor: any = [
+          'match',
+          ['get', '_status'],
+          'pending', '#15803d', // Green-700
+          baseLineColor,
+        ];
 
         return (
           <MapLibreGL.ShapeSource
@@ -223,6 +311,23 @@ export default function MapScreen() {
       });
   };
 
+  /* ── Zone display ── */
+  const renderZone = () => {
+    if (!zone) { return null; }
+    return (
+      <MapLibreGL.ShapeSource id="zone-src" shape={zone}>
+        <MapLibreGL.LineLayer
+          id="zone-outline"
+          style={{
+            lineColor: '#EA580C', // Orange-600
+            lineWidth: 3,
+            lineDasharray: [2, 2],
+          }}
+        />
+      </MapLibreGL.ShapeSource>
+    );
+  };
+
   /* ── GPS marker ── */
   const renderGpsMarker = () => {
     if (!gpsEnabled || !currentPosition) {
@@ -264,20 +369,12 @@ export default function MapScreen() {
     );
   };
 
-  /* ── Toolbar ── */
-  const tools: { icon: string; tool: MapTool; label: string }[] = [
-    { icon: 'cursor-default', tool: 'pan', label: 'Pan' },
-    { icon: 'cursor-default-click', tool: 'select', label: 'Select' },
-    { icon: 'pencil', tool: 'correct', label: 'Corriger' },
-    { icon: 'information-outline', tool: 'info', label: 'Info' },
-  ];
-
   return (
     <View style={styles.container}>
       <MapLibreGL.MapView
         ref={mapRef}
         style={styles.map}
-        mapStyle="https://demotiles.maplibre.org/style.json"
+        mapStyle={OSM_STYLE}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -289,21 +386,26 @@ export default function MapScreen() {
           }}
         />
         {renderLayers()}
+        {renderZone()}
         {renderGpsMarker()}
       </MapLibreGL.MapView>
 
-      {/* ── Toolbar (top-right) ── */}
-      <View style={styles.toolbar}>
-        {tools.map((t) => (
-          <ToolbarBtn
-            key={t.tool}
-            icon={t.icon}
-            label={t.label}
-            active={activeTool === t.tool}
-            onPress={() => setActiveTool(t.tool)}
-          />
-        ))}
-      </View>
+      {/* ── Refresh Button (top-right) ── */}
+      <TouchableOpacity
+        style={styles.refreshBtn}
+        onPress={async () => {
+          Alert.alert('Synchronisation', 'Lancement de la synchronisation manuelle...');
+          await syncEngine.run();
+          // Reload features
+          const result: Record<string, AppFeature[]> = {};
+          for (const layer of layers.filter((l) => l.visible)) {
+            result[layer.id] = await localDB.getFeaturesByLayer(layer.id);
+          }
+          setFeaturesByLayer(result);
+        }}
+      >
+        <Icon name="sync" size={24} color={colors.primary} />
+      </TouchableOpacity>
 
       {/* ── GPS FAB ── */}
       <FAB
@@ -327,18 +429,58 @@ export default function MapScreen() {
       {selectedFeatureIds.length === 1 && (
         <FAB
           icon="pencil-plus"
-          onPress={() => {
-            // Find which layer the selected feature belongs to
+          onPress={async () => {
+            const featureId = selectedFeatureIds[0];
+            let targetLayerId = '';
+            let targetFeature: AppFeature | null = null;
+
             for (const [layerId, feats] of Object.entries(featuresByLayer)) {
-              const found = feats.find((f) => f.id === selectedFeatureIds[0]);
+              const found = feats.find((f) => f.id === featureId);
               if (found) {
-                nav.navigate('CorrectionForm', {
-                  featureId: found.id,
-                  layerId,
-                });
+                targetLayerId = layerId;
+                targetFeature = found;
                 break;
               }
             }
+
+            if (!targetFeature) {
+              return;
+            }
+
+            // Geofence check
+            if (zone) {
+              // 1. Check user position
+              if (!currentPosition) {
+                Alert.alert('Erreur', 'Localisation GPS requise pour corriger');
+                return;
+              }
+              const userPt = turfPoint([currentPosition.longitude, currentPosition.latitude]);
+              if (!booleanPointInPolygon(userPt, zone as any)) {
+                Alert.alert('Accès refusé', 'vous etes en dehors de la zone qui vius est assigné');
+                return;
+              }
+
+              // 2. Check feature position
+              let checkPt: any = null;
+              const geom = targetFeature.geom;
+              if (geom?.type === 'Point') {
+                checkPt = turfPoint(geom.coordinates);
+              } else if (geom?.type === 'Polygon') {
+                checkPt = turfPoint(geom.coordinates[0][0]);
+              } else if (geom?.type === 'LineString') {
+                checkPt = turfPoint(geom.coordinates[0]);
+              }
+
+              if (checkPt && !booleanPointInPolygon(checkPt, zone as any)) {
+                Alert.alert('Accès refusé', 'Cette entité est en dehors de la zone qui vous est assignée');
+                return;
+              }
+            }
+
+            nav.navigate('CorrectionForm', {
+              featureId,
+              layerId: targetLayerId,
+            });
           }}
           color={colors.success}
           style={styles.correctionFab}
@@ -351,13 +493,16 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  toolbar: {
+  refreshBtn: {
     position: 'absolute',
     top: spacing.xl,
     right: spacing.md,
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.xs,
+    borderRadius: 50,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...shadow.md,
   },
   gpsFab: {

@@ -53,6 +53,16 @@ export const useCorrectionStore = create<CorrectionState>((set) => ({
     const db = localDB.getDB();
     await db.execute("UPDATE features SET status = 'pending', dirty = 1 WHERE id = ?", [c.feature_id]);
 
+    // get updated feature to enqueue
+    const updatedFeature = await localDB.getFeatureById(c.feature_id);
+    if (updatedFeature) {
+      await localDB.enqueueSyncOp('UPDATE', 'feature', updatedFeature.id, {
+        id: updatedFeature.id,
+        status: 'pending',
+        updated_at: new Date().toISOString(),
+      });
+    }
+
     // enqueue for sync
     await localDB.enqueueSyncOp('INSERT', 'correction', correction.id, correction);
 

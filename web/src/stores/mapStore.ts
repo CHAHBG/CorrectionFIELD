@@ -8,7 +8,9 @@ import type { MapTool, Viewport, OnlineUser, AppFeature } from '@/shared/types';
 interface MapState {
   // Viewport
   viewport: Viewport;
+  viewportUpdateId: number;
   setViewport: (v: Partial<Viewport>) => void;
+  jumpToViewport: (v: Partial<Viewport>) => void;
 
   // Active tool
   activeTool: MapTool;
@@ -65,8 +67,20 @@ interface MapState {
 
 export const useMapStore = create<MapState>()((set, get) => ({
   // Viewport — default Kédougou, Sénégal
-  viewport: { latitude: 12.56, longitude: -12.18, zoom: 10 },
+  viewport: {
+    latitude: 12.56,
+    longitude: -12.18,
+    zoom: 10,
+    bearing: 0,
+    pitch: 0,
+    padding: { top: 0, bottom: 0, left: 0, right: 0 }
+  },
+  viewportUpdateId: 0,
   setViewport: (v) => set((s) => ({ viewport: { ...s.viewport, ...v } })),
+  jumpToViewport: (v) => set((s) => ({
+    viewport: { ...s.viewport, ...v },
+    viewportUpdateId: s.viewportUpdateId + 1
+  })),
 
   // Tool
   activeTool: 'select',

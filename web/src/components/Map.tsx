@@ -81,9 +81,9 @@ export default function Map({
                     'fill-color': [
                         'match',
                         ['get', 'status'],
-                        'pending', '#fbbf24', // amber-400
-                        'corrected', '#3b82f6', // blue-500
-                        'validated', '#22c55e', // green-500
+                        'pending', '#4CAF50', // green
+                        'corrected', '#4CAF50', // green
+                        'validated', '#2E7D32', // dark green
                         '#9ca3af' // gray-400 default
                     ],
                     'fill-opacity': 0.5

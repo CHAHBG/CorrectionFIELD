@@ -11,6 +11,7 @@ interface ProjectState {
   session: Session | null;
   user: UserProfile | null;
   currentProject: Project | null;
+  currentRole: MemberRole | null;
   projects: Project[];
   isAuthenticated: boolean;
   loading: boolean;
@@ -27,6 +28,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   session: null,
   user: null,
   currentProject: null,
+  currentRole: null,
   projects: [],
   isAuthenticated: false,
   loading: true,
@@ -70,14 +72,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ session: null, user: null, currentProject: null, isAuthenticated: false });
+    set({ session: null, user: null, currentProject: null, currentRole: null, isAuthenticated: false });
   },
 
-  setProject: (project) => set({ currentProject: project }),
+  setProject: (project) => set({ currentProject: project, currentRole: project.role ?? 'viewer' }),
 
   fetchProjects: async () => {
     const { user } = get();
-    if (!user) {return;}
+    if (!user) { return; }
     try {
       const { data } = await supabase
         .from('projects')
@@ -93,6 +95,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         settings: p.settings ?? {},
         created_at: p.created_at,
         updated_at: p.updated_at ?? p.created_at,
+        role: p.project_members?.[0]?.role ?? 'viewer',
       }));
       set({ projects });
     } catch (e) {

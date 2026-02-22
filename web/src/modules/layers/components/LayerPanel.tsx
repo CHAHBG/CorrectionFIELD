@@ -25,7 +25,7 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
   const addLayer = useLayerStore((s) => s.addLayer);
   const setAttributeTableOpen = useMapStore((s) => s.setAttributeTableOpen);
   const setAttributeTableLayerId = useMapStore((s) => s.setAttributeTableLayerId);
-  const setViewport = useMapStore((s) => s.setViewport);
+  const jumpToViewport = useMapStore((s) => s.jumpToViewport);
   const { currentProject } = useProjectStore();
   const deleteLayerMutation = useDeleteLayer();
   const [filter, setFilter] = useState('');
@@ -36,11 +36,11 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
 
   const filteredGroups = filter
     ? groups.map((g) => ({
-        ...g,
-        layers: g.layers.filter((l) =>
-          l.name.toLowerCase().includes(filter.toLowerCase())
-        ),
-      })).filter((g) => g.layers.length > 0)
+      ...g,
+      layers: g.layers.filter((l) =>
+        l.name.toLowerCase().includes(filter.toLowerCase())
+      ),
+    })).filter((g) => g.layers.length > 0)
     : groups;
 
   const toggleGroup = (name: string) => {
@@ -100,17 +100,41 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
 
   const handleZoomLayer = async (layer: Layer) => {
     const features = await featuresApi.getByLayer(layer.id);
-    const points: [number, number][] = [];
+    if (!features || features.length === 0) return;
 
-    const collect = (geometry: GeoJSON.Geometry): void => {
-      if (geometry.type === 'Point') points.push(geometry.coordinates as [number, number]);
-      else if (geometry.type === 'MultiPoint' || geometry.type === 'LineString') {
-        points.push(...(geometry.coordinates as [number, number][]));
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    let found = false;
+
+    const collect = (geometry: GeoJSON.Geometry | null): void => {
+      if (!geometry) return;
+      if (geometry.type === 'Point') {
+        const [lng, lat] = geometry.coordinates;
+        minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+        found = true;
+      } else if (geometry.type === 'MultiPoint' || geometry.type === 'LineString') {
+        for (const [lng, lat] of geometry.coordinates as [number, number][]) {
+          minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+          minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+          found = true;
+        }
       } else if (geometry.type === 'MultiLineString' || geometry.type === 'Polygon') {
-        for (const ring of geometry.coordinates as [number, number][][]) points.push(...ring);
+        for (const ring of geometry.coordinates as [number, number][][]) {
+          for (const [lng, lat] of ring) {
+            minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+            minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+            found = true;
+          }
+        }
       } else if (geometry.type === 'MultiPolygon') {
         for (const polygon of geometry.coordinates as [number, number][][][]) {
-          for (const ring of polygon) points.push(...ring);
+          for (const ring of polygon) {
+            for (const [lng, lat] of ring) {
+              minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+              minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+              found = true;
+            }
+          }
         }
       } else if (geometry.type === 'GeometryCollection') {
         for (const g of geometry.geometries) collect(g);
@@ -118,18 +142,15 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
     };
 
     for (const feature of features) collect(feature.geom as GeoJSON.Geometry);
-    if (points.length === 0) return;
+    if (!found) return;
 
-    const lons = points.map((p) => p[0]);
-    const lats = points.map((p) => p[1]);
-    const minLng = Math.min(...lons);
-    const maxLng = Math.max(...lons);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const span = Math.max(maxLng - minLng, maxLat - minLat, 0.0001);
-    const zoom = Math.min(18, Math.max(3, Math.log2(360 / span) - 1));
+    // Zoom calculation logic
+    const spanLng = maxLng - minLng;
+    const spanLat = maxLat - minLat;
+    const maxSpan = Math.max(spanLng, spanLat * 2, 0.00001); // Lat weighted slightly differently
+    const zoom = Math.min(18, Math.max(2, Math.floor(Math.log2(360 / maxSpan)) - 0.5));
 
-    setViewport({
+    jumpToViewport({
       longitude: (minLng + maxLng) / 2,
       latitude: (minLat + maxLat) / 2,
       zoom,

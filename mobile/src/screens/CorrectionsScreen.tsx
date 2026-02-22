@@ -8,6 +8,7 @@ import {
   Text,
   FlatList,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -17,12 +18,24 @@ import { useCorrectionStore } from '@/stores/correctionStore';
 import { Correction, RootStackParamList } from '@/types';
 import { Card, StatusBadge, EmptyState, Spinner } from '@/shared/components';
 import { colors, spacing, typography } from '@/shared/theme';
+import { syncEngine } from '@/infra/sync/SyncEngine';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CorrectionsScreen() {
   const nav = useNavigation<Nav>();
   const { corrections, loading, loadAll } = useCorrectionStore();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await syncEngine.run();
+      await loadAll();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadAll]);
 
   useEffect(() => {
     loadAll();
@@ -48,11 +61,17 @@ export default function CorrectionsScreen() {
             Parcelle {item.feature_id.slice(0, 8)}
           </Text>
           <Text style={styles.meta}>
-            {new Date(item.created_at).toLocaleDateString('fr-FR', {
-              day: '2-digit',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {(() => {
+              const d = new Date(item.created_at);
+              if (isNaN(d.getTime())) {
+                return 'Date inconnue';
+              }
+              return d.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              });
+            })()}
           </Text>
         </View>
         <StatusBadge status={item.status} />
@@ -97,6 +116,9 @@ export default function CorrectionsScreen() {
           renderItem={renderItem}
           contentContainerStyle={{ padding: spacing.md }}
           ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+          }
         />
       )}
     </View>

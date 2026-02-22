@@ -72,7 +72,7 @@ export function MembersManager() {
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!currentProject || !email) return;
-      const { data: user } = await supabase.from('profiles').select('id').eq('email', email).single();
+      const { data: user } = await supabase.from('profiles').select('id').eq('email', email).maybeSingle();
       if (!user) throw new Error('Utilisateur introuvable');
       const { error } = await supabase.from('project_members').insert({
         project_id: currentProject.id,

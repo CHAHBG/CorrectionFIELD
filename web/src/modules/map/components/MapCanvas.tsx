@@ -2,7 +2,7 @@
 //  FieldCorrect — MapCanvas (main map container)
 // =====================================================
 
-import { useRef, useMemo, useCallback, useState } from 'react';
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import Map, {
   NavigationControl,
   ScaleControl,
@@ -48,6 +48,7 @@ const DEFAULT_MAP_STYLE = {
 export function MapCanvas() {
   const mapRef = useRef<MapRef>(null);
   const viewport = useMapStore((s) => s.viewport);
+  const viewportUpdateId = useMapStore((s) => s.viewportUpdateId);
   const setViewport = useMapStore((s) => s.setViewport);
   const layers = useLayerStore((s) => s.layers);
 
@@ -79,10 +80,28 @@ export function MapCanvas() {
         zoom: evt.viewState.zoom,
         bearing: evt.viewState.bearing,
         pitch: evt.viewState.pitch,
+        padding: evt.viewState.padding ? {
+          top: evt.viewState.padding.top ?? 0,
+          bottom: evt.viewState.padding.bottom ?? 0,
+          left: evt.viewState.padding.left ?? 0,
+          right: evt.viewState.padding.right ?? 0,
+        } : { top: 0, bottom: 0, left: 0, right: 0 },
       });
     },
     [setViewport]
   );
+
+  // Handle programmatic jumps (e.g. Zoom to Layer)
+  useEffect(() => {
+    if (viewportUpdateId > 0 && mapRef.current) {
+      mapRef.current.flyTo({
+        center: [viewport.longitude, viewport.latitude],
+        zoom: viewport.zoom,
+        duration: 2000,
+        padding: viewport.padding,
+      });
+    }
+  }, [viewportUpdateId, viewport.latitude, viewport.longitude, viewport.padding, viewport.zoom]);
 
   const handleSearchResult = useCallback(
     (result: { lngLat?: [number, number] }) => {

@@ -71,20 +71,20 @@ function compileRuleBased(style: LayerStyle): MapLibrePaint {
   // MapLibre "match" expression: ['match', ['get', field], v1, c1, v2, c2, default]
   const fillMatch: unknown = hasRules
     ? [
-        'match',
-        ['get', field],
-        ...rules.flatMap((r) => [r.value, r.style.fillColor ?? defaultFill]),
-        defaultFill,
-      ]
+      'match',
+      ['get', field],
+      ...rules.flatMap((r) => [r.value, r.style.fillColor ?? defaultFill]),
+      defaultFill,
+    ]
     : defaultFill;
 
   const strokeMatch: unknown = hasRules
     ? [
-        'match',
-        ['get', field],
-        ...rules.flatMap((r) => [r.value, r.style.strokeColor ?? defaultStroke]),
-        defaultStroke,
-      ]
+      'match',
+      ['get', field],
+      ...rules.flatMap((r) => [r.value, r.style.strokeColor ?? defaultStroke]),
+      defaultStroke,
+    ]
     : defaultStroke;
 
   return {
@@ -154,10 +154,10 @@ export function defaultStatusStyle(): LayerStyle {
         strokeOpacity: 1,
       },
       rules: [
-        { value: 'pending', label: 'En attente', style: { fillColor: '#FF9800', strokeColor: '#E65100' } },
+        { value: 'pending', label: 'En attente', style: { fillColor: '#4CAF50', strokeColor: '#1B5E20' } },
         { value: 'locked', label: 'Verrouillée', style: { fillColor: '#FFC107', strokeColor: '#F57F17' } },
-        { value: 'corrected', label: 'Corrigée', style: { fillColor: '#2196F3', strokeColor: '#0D47A1' } },
-        { value: 'validated', label: 'Validée', style: { fillColor: '#4CAF50', strokeColor: '#1B5E20' } },
+        { value: 'corrected', label: 'Corrigée', style: { fillColor: '#4CAF50', strokeColor: '#1B5E20' } },
+        { value: 'validated', label: 'Validée', style: { fillColor: '#2E7D32', strokeColor: '#1B5E20' } },
         { value: 'rejected', label: 'Rejetée', style: { fillColor: '#F44336', strokeColor: '#B71C1C' } },
       ],
     },

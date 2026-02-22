@@ -112,6 +112,53 @@ export function useUnlockFeature() {
 export function featuresToGeoJSON(features: AppFeature[] | undefined): GeoJSON.FeatureCollection {
   if (!features) return { type: 'FeatureCollection', features: [] };
 
+  if (features.length > 0) {
+    // Basic bbox calculation for logging
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    features.forEach(f => {
+      if (f.geom?.type === 'Point') {
+        const [x, y] = f.geom.coordinates;
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      } else if (f.geom?.type === 'LineString' || f.geom?.type === 'MultiPoint') {
+        f.geom.coordinates.forEach(([x, y]) => {
+          minX = Math.min(minX, x); minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+        });
+      } else if (f.geom?.type === 'Polygon' || f.geom?.type === 'MultiLineString') {
+        f.geom.coordinates.forEach(ring => {
+          ring.forEach(([x, y]) => {
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+          });
+        });
+      } else if (f.geom?.type === 'MultiPolygon') {
+        f.geom.coordinates.forEach(poly => {
+          poly.forEach(ring => {
+            ring.forEach(([x, y]) => {
+              minX = Math.min(minX, x); minY = Math.min(minY, y);
+              maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            });
+          });
+        });
+      }
+    });
+
+    console.log(`[featuresToGeoJSON] result: ${features.length} features`);
+    console.log(`[featuresToGeoJSON] bbox: [${minX.toFixed(4)}, ${minY.toFixed(4)}, ${maxX.toFixed(4)}, ${maxY.toFixed(4)}]`);
+    console.log(`[featuresToGeoJSON] first geom type: ${features[0].geom?.type}`);
+
+    const firstGeom = features[0].geom;
+    const coords = firstGeom && 'coordinates' in firstGeom ? firstGeom.coordinates : null;
+    if (coords) {
+      // For Polygon, coordinates[0] is the first ring
+      const firstPair = firstGeom.type === 'Polygon'
+        ? (coords as [number, number][][])[0][0]
+        : (coords as [number, number][])[0];
+      console.log(`[featuresToGeoJSON] first coord pair: ${JSON.stringify(firstPair)}`);
+    }
+  }
+
   return {
     type: 'FeatureCollection',
     features: features.map((f) => ({

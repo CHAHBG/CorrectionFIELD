@@ -143,11 +143,10 @@ class SyncEngine {
       const metaResult = await db.execute("SELECT value FROM app_meta WHERE key = 'last_sync'");
       const lastSync = (metaResult.rows?.[0]?.value as string | undefined) ?? '1970-01-01T00:00:00Z';
 
-      // Pull layers
+      // Pull layers (always pull all layers for user's projects to ensure new members see them)
       const { data: layers } = await supabase
         .from('layers')
-        .select('*')
-        .gte('updated_at', lastSync);
+        .select('*');
 
       if (layers) {
         for (const l of layers) {
@@ -165,54 +164,83 @@ class SyncEngine {
         }
       }
 
-      // Pull features (paginated)
-      let offset = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Pull project_members to get zones
+      const { data: profile } = await supabase.auth.getUser();
+      if (profile.user) {
+        const { data: members } = await supabase
+          .from('project_members')
+          .select('project_id, zone')
+          .eq('user_id', profile.user.id);
 
-      while (hasMore) {
-        const { data: features } = await supabase
-          .from('features')
-          .select('*')
-          .gte('updated_at', lastSync)
-          .range(offset, offset + pageSize - 1)
-          .order('updated_at', { ascending: true });
-
-        if (!features || features.length === 0) {
-          hasMore = false;
-          break;
-        }
-
-        for (const f of features) {
-          // Check for conflict: local dirty + server updated
-          const localFeature = await localDB.getFeatureById(f.id);
-
-          if (localFeature && localFeature.dirty) {
-            // CONFLICT: local modified + server modified
-            const conflict: SyncConflict = {
-              featureId: f.id,
-              localData: localFeature,
-              serverData: f,
-            };
-            conflictCount++;
-            this.conflictHandlers.forEach((h) => h(conflict));
-            // Don't overwrite local — user must resolve
-          } else {
-            // No conflict: server wins
-            await localDB.upsertFeature({
-              id: f.id,
-              layer_id: f.layer_id,
-              geom: f.geom,
-              props: f.props,
-              status: f.status,
-              dirty: false,
-            });
-            pulledCount++;
+        if (members) {
+          for (const m of members) {
+            if (m.zone) {
+              await db.execute(
+                "INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)",
+                [`zone_${m.project_id}`, JSON.stringify(m.zone)]
+              );
+            }
           }
         }
+      }
 
-        offset += features.length;
-        if (features.length < pageSize) { hasMore = false; }
+      // Pull features (paginated)
+      // Strategy: for each layer, check if we have 0 features. If so, pull all. Otherwise pull delta.
+      const localLayers = await localDB.getLayers();
+
+      for (const layer of localLayers) {
+        const localCountResult = await db.execute("SELECT COUNT(*) as cnt FROM features WHERE layer_id = ?", [layer.id]);
+        const hasFeatures = (localCountResult.rows?.[0]?.cnt as number ?? 0) > 0;
+
+        let offset = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          let query = supabase
+            .from('features')
+            .select('*')
+            .eq('layer_id', layer.id)
+            .range(offset, offset + pageSize - 1)
+            .order('updated_at', { ascending: true });
+
+          if (hasFeatures) {
+            query = query.gte('updated_at', lastSync);
+          }
+
+          const { data: features } = await query;
+
+          if (!features || features.length === 0) {
+            hasMore = false;
+            break;
+          }
+
+          for (const f of features) {
+            const localFeature = await localDB.getFeatureById(f.id);
+            if (localFeature && localFeature.dirty) {
+              const conflict: SyncConflict = {
+                featureId: f.id,
+                localData: localFeature,
+                serverData: f,
+              };
+              conflictCount++;
+              this.conflictHandlers.forEach((h) => h(conflict));
+            } else {
+              await localDB.upsertFeature({
+                id: f.id,
+                layer_id: f.layer_id,
+                geom: f.geom,
+                props: f.props,
+                status: f.status,
+                dirty: false,
+              });
+              pulledCount++;
+            }
+          }
+
+          offset += features.length;
+          if (features.length < pageSize) { hasMore = false; }
+        }
       }
 
       // ═══ 3. PULL corrections (new) ═══
