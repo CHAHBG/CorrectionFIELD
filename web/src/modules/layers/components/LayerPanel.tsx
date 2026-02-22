@@ -6,7 +6,11 @@ import { useState } from 'react';
 import { Layers, Plus, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { useLayerStore } from '@/stores/layerStore';
 import { useMapStore } from '@/stores/mapStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { LayerItem } from './LayerItem';
+import { useDeleteLayer } from '@/modules/layers/hooks/useLayers';
+import { layersApi } from '@/infra/api/layers.api';
+import { featuresApi } from '@/infra/api/features.api';
 import { Button, Input } from '@/shared/ui/components';
 import type { Layer } from '@/shared/types';
 
@@ -17,8 +21,13 @@ interface LayerPanelProps {
 
 export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
   const layers = useLayerStore((s) => s.layers);
+  const updateLayer = useLayerStore((s) => s.updateLayer);
+  const addLayer = useLayerStore((s) => s.addLayer);
   const setAttributeTableOpen = useMapStore((s) => s.setAttributeTableOpen);
   const setAttributeTableLayerId = useMapStore((s) => s.setAttributeTableLayerId);
+  const setViewport = useMapStore((s) => s.setViewport);
+  const { currentProject } = useProjectStore();
+  const deleteLayerMutation = useDeleteLayer();
   const [filter, setFilter] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -46,6 +55,85 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
   const handleOpenAttributeTable = (layer: Layer) => {
     setAttributeTableLayerId(layer.id);
     setAttributeTableOpen(true);
+  };
+
+  const handleDeleteLayer = (layerId: string) => {
+    deleteLayerMutation.mutate(layerId);
+  };
+
+  const handleToggleLabels = async (layer: Layer) => {
+    const labels = layer.style.labels ?? {
+      enabled: false,
+      field: 'id',
+      fontSize: 12,
+      fontColor: '#333',
+      halo: true,
+      placement: 'center' as const,
+      minZoom: 0,
+    };
+    const nextStyle = { ...layer.style, labels: { ...labels, enabled: !labels.enabled } };
+    updateLayer(layer.id, { style: nextStyle });
+    await layersApi.update(layer.id, { style: nextStyle });
+  };
+
+  const handleDuplicateLayer = async (layer: Layer) => {
+    if (!currentProject) return;
+    const duplicated = await layersApi.create({
+      projectId: currentProject.id,
+      name: `${layer.name} (copie)`,
+      description: layer.description,
+      geometryType: layer.geometryType,
+      sourceCrs: layer.sourceCrs,
+      isReference: layer.isReference,
+      isEditable: layer.isEditable,
+      displayOrder: layers.length,
+      groupName: layer.groupName,
+      visible: layer.visible,
+      fields: layer.fields,
+      style: layer.style,
+      formConfig: layer.formConfig,
+      minZoom: layer.minZoom,
+      maxZoom: layer.maxZoom,
+    });
+    addLayer(duplicated);
+  };
+
+  const handleZoomLayer = async (layer: Layer) => {
+    const features = await featuresApi.getByLayer(layer.id);
+    const points: [number, number][] = [];
+
+    const collect = (geometry: GeoJSON.Geometry): void => {
+      if (geometry.type === 'Point') points.push(geometry.coordinates as [number, number]);
+      else if (geometry.type === 'MultiPoint' || geometry.type === 'LineString') {
+        points.push(...(geometry.coordinates as [number, number][]));
+      } else if (geometry.type === 'MultiLineString' || geometry.type === 'Polygon') {
+        for (const ring of geometry.coordinates as [number, number][][]) points.push(...ring);
+      } else if (geometry.type === 'MultiPolygon') {
+        for (const polygon of geometry.coordinates as [number, number][][][]) {
+          for (const ring of polygon) points.push(...ring);
+        }
+      } else if (geometry.type === 'GeometryCollection') {
+        for (const g of geometry.geometries) collect(g);
+      }
+    };
+
+    for (const feature of features) collect(feature.geom as GeoJSON.Geometry);
+    if (points.length === 0) return;
+
+    const lons = points.map((p) => p[0]);
+    const lats = points.map((p) => p[1]);
+    const minLng = Math.min(...lons);
+    const maxLng = Math.max(...lons);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const span = Math.max(maxLng - minLng, maxLat - minLat, 0.0001);
+    const zoom = Math.min(18, Math.max(3, Math.log2(360 / span) - 1));
+
+    setViewport({
+      longitude: (minLng + maxLng) / 2,
+      latitude: (minLat + maxLat) / 2,
+      zoom,
+    });
   };
 
   return (
@@ -98,6 +186,10 @@ export function LayerPanel({ onOpenSymbology, onOpenImport }: LayerPanelProps) {
                   layer={layer}
                   onOpenSymbology={onOpenSymbology}
                   onOpenAttributeTable={handleOpenAttributeTable}
+                  onDelete={handleDeleteLayer}
+                  onZoom={handleZoomLayer}
+                  onToggleLabels={handleToggleLabels}
+                  onDuplicate={handleDuplicateLayer}
                 />
               ))}
           </div>

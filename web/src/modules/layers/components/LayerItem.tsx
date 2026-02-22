@@ -14,6 +14,9 @@ interface LayerItemProps {
   onOpenSymbology?: (layer: Layer) => void;
   onOpenAttributeTable?: (layer: Layer) => void;
   onDelete?: (layerId: string) => void;
+  onZoom?: (layer: Layer) => void;
+  onToggleLabels?: (layer: Layer) => void;
+  onDuplicate?: (layer: Layer) => void;
 }
 
 const GEOM_ICONS: Record<string, string> = {
@@ -25,7 +28,15 @@ const GEOM_ICONS: Record<string, string> = {
   MultiPolygon: '▬▬',
 };
 
-export function LayerItem({ layer, onOpenSymbology, onOpenAttributeTable, onDelete }: LayerItemProps) {
+export function LayerItem({
+  layer,
+  onOpenSymbology,
+  onOpenAttributeTable,
+  onDelete,
+  onZoom,
+  onToggleLabels,
+  onDuplicate,
+}: LayerItemProps) {
   const toggleVisibility = useLayerStore((s) => s.toggleVisibility);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -83,7 +94,7 @@ export function LayerItem({ layer, onOpenSymbology, onOpenAttributeTable, onDele
               <MenuItem
                 icon={<ZoomIn size={14} />}
                 label="Zoom sur la couche"
-                onClick={() => { setMenuOpen(false); }}
+                onClick={() => { setMenuOpen(false); onZoom?.(layer); }}
               />
               <MenuItem
                 icon={<Table2 size={14} />}
@@ -98,13 +109,13 @@ export function LayerItem({ layer, onOpenSymbology, onOpenAttributeTable, onDele
               <MenuItem
                 icon={<Tag size={14} />}
                 label="Étiquettes"
-                onClick={() => { setMenuOpen(false); }}
+                onClick={() => { setMenuOpen(false); onToggleLabels?.(layer); }}
               />
               <div className="my-1 h-px bg-gray-100" />
               <MenuItem
                 icon={<Copy size={14} />}
                 label="Dupliquer"
-                onClick={() => { setMenuOpen(false); }}
+                onClick={() => { setMenuOpen(false); onDuplicate?.(layer); }}
               />
               <MenuItem
                 icon={<Trash2 size={14} />}

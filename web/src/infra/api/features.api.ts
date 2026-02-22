@@ -6,11 +6,181 @@ import { supabase } from '@/infra/supabase';
 import type { AppFeature, FeatureStatus } from '@/shared/types';
 import { geometryToEwkt } from '@/shared/utils/geometry';
 
+function parseGeometryValue(value: unknown): GeoJSON.Geometry {
+  if (value && typeof value === 'object' && 'type' in (value as Record<string, unknown>)) {
+    return value as GeoJSON.Geometry;
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error('Format géométrique non supporté');
+  }
+
+  const text = value.trim();
+  if (!text) throw new Error('Géométrie vide');
+
+  if (text.startsWith('{') || text.startsWith('[')) {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === 'object' && 'type' in (parsed as Record<string, unknown>)) {
+      return parsed as GeoJSON.Geometry;
+    }
+  }
+
+  // PostGIS via PostgREST frequently returns EWKB hex (sometimes prefixed by "\\x")
+  const hex = text.startsWith('\\x') ? text.slice(2) : text;
+  if (/^[0-9a-fA-F]+$/.test(hex) && hex.length >= 10) {
+    const geometry = parseEwkbHex(hex);
+    if (geometry) return geometry;
+  }
+
+  throw new Error('Impossible de parser la géométrie retournée par la base');
+}
+
+function parseEwkbHex(hex: string): GeoJSON.Geometry | null {
+  if (hex.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
+  }
+  const parsed = parseWkbAt(bytes, 0);
+  return parsed?.geometry ?? null;
+}
+
+type ParsedWkb = { geometry: GeoJSON.Geometry; nextOffset: number };
+
+function parseWkbAt(blob: Uint8Array, offset: number): ParsedWkb | null {
+  if (offset + 5 > blob.length) return null;
+
+  const littleEndian = blob[offset] === 1;
+  const typeRaw = readUint32(blob, offset + 1, littleEndian);
+  const { baseType, hasZ, hasM } = decodeWkbType(typeRaw);
+  const pointStride = 16 + (hasZ ? 8 : 0) + (hasM ? 8 : 0);
+  let cursor = offset + 5;
+
+  const readPoint = (): [number, number] | null => {
+    if (cursor + pointStride > blob.length) return null;
+    const x = readFloat64(blob, cursor, littleEndian);
+    const y = readFloat64(blob, cursor + 8, littleEndian);
+    cursor += pointStride;
+    return [x, y];
+  };
+
+  if (baseType === 1) {
+    const point = readPoint();
+    if (!point) return null;
+    return { geometry: { type: 'Point', coordinates: point }, nextOffset: cursor };
+  }
+
+  if (baseType === 2) {
+    if (cursor + 4 > blob.length) return null;
+    const numPts = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
+    const coords: number[][] = [];
+    for (let i = 0; i < numPts; i++) {
+      const point = readPoint();
+      if (!point) return null;
+      coords.push(point);
+    }
+    return { geometry: { type: 'LineString', coordinates: coords }, nextOffset: cursor };
+  }
+
+  if (baseType === 3) {
+    if (cursor + 4 > blob.length) return null;
+    const numRings = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
+    const rings: number[][][] = [];
+    for (let r = 0; r < numRings; r++) {
+      if (cursor + 4 > blob.length) return null;
+      const numPts = readUint32(blob, cursor, littleEndian);
+      cursor += 4;
+      const ring: number[][] = [];
+      for (let i = 0; i < numPts; i++) {
+        const point = readPoint();
+        if (!point) return null;
+        ring.push(point);
+      }
+      rings.push(ring);
+    }
+    return { geometry: { type: 'Polygon', coordinates: rings }, nextOffset: cursor };
+  }
+
+  if (baseType === 4 || baseType === 5 || baseType === 6) {
+    if (cursor + 4 > blob.length) return null;
+    const numGeoms = readUint32(blob, cursor, littleEndian);
+    cursor += 4;
+
+    if (baseType === 4) {
+      const coords: number[][] = [];
+      for (let i = 0; i < numGeoms; i++) {
+        const parsed = parseWkbAt(blob, cursor);
+        if (!parsed || parsed.geometry.type !== 'Point') return null;
+        coords.push(parsed.geometry.coordinates as number[]);
+        cursor = parsed.nextOffset;
+      }
+      return { geometry: { type: 'MultiPoint', coordinates: coords }, nextOffset: cursor };
+    }
+
+    if (baseType === 5) {
+      const lines: number[][][] = [];
+      for (let i = 0; i < numGeoms; i++) {
+        const parsed = parseWkbAt(blob, cursor);
+        if (!parsed || parsed.geometry.type !== 'LineString') return null;
+        lines.push(parsed.geometry.coordinates as number[][]);
+        cursor = parsed.nextOffset;
+      }
+      return { geometry: { type: 'MultiLineString', coordinates: lines }, nextOffset: cursor };
+    }
+
+    const polygons: number[][][][] = [];
+    for (let i = 0; i < numGeoms; i++) {
+      const parsed = parseWkbAt(blob, cursor);
+      if (!parsed || parsed.geometry.type !== 'Polygon') return null;
+      polygons.push(parsed.geometry.coordinates as number[][][]);
+      cursor = parsed.nextOffset;
+    }
+    return { geometry: { type: 'MultiPolygon', coordinates: polygons }, nextOffset: cursor };
+  }
+
+  return null;
+}
+
+function decodeWkbType(raw: number): { baseType: number; hasZ: boolean; hasM: boolean } {
+  const hasZFlag = (raw & 0x80000000) !== 0;
+  const hasMFlag = (raw & 0x40000000) !== 0;
+  let base = raw & 0x0fffffff;
+
+  let hasZ = hasZFlag;
+  let hasM = hasMFlag;
+
+  if (base >= 3000) {
+    hasZ = true;
+    hasM = true;
+    base -= 3000;
+  } else if (base >= 2000) {
+    hasM = true;
+    base -= 2000;
+  } else if (base >= 1000) {
+    hasZ = true;
+    base -= 1000;
+  }
+
+  return { baseType: base, hasZ, hasM };
+}
+
+function readUint32(blob: Uint8Array, offset: number, littleEndian: boolean): number {
+  const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+  return view.getUint32(offset, littleEndian);
+}
+
+function readFloat64(blob: Uint8Array, offset: number, littleEndian: boolean): number {
+  const view = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
+  return view.getFloat64(offset, littleEndian);
+}
+
 function snakeToFeature(row: Record<string, unknown>): AppFeature {
   return {
     id: row.id as string,
     layerId: row.layer_id as string,
-    geom: typeof row.geom === 'string' ? JSON.parse(row.geom as string) : row.geom as AppFeature['geom'],
+    geom: parseGeometryValue(row.geom),
     props: (row.props ?? {}) as Record<string, unknown>,
     status: (row.status ?? 'pending') as FeatureStatus,
     lockedBy: row.locked_by as string | null ?? null,
