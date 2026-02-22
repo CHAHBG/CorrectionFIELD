@@ -75,12 +75,12 @@ export function WorkspaceSelector() {
     }
 
     return (
-        <div className="flex min-h-screen w-screen flex-col items-center bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/50 via-slate-50 to-slate-100">
+        <div className="flex min-h-screen w-screen flex-col items-center bg-slate-50">
             {/* Global Header */}
-            <header className="w-full border-b border-slate-200/60 bg-white/80 backdrop-blur-md shadow-sm">
+            <header className="w-full border-b border-slate-200 bg-white shadow-sm">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md">
+                        <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600 text-sm font-bold text-white shadow-sm">
                             FC
                         </div>
                         <span className="text-xl font-bold tracking-tight text-slate-800">FieldCorrect</span>
@@ -125,12 +125,11 @@ export function WorkspaceSelector() {
                         <button
                             key={org.id}
                             onClick={() => handleSelect(org)}
-                            className="group relative flex h-44 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white/60 backdrop-blur-sm p-6 text-left transition-all hover:-translate-y-1 hover:border-blue-400 hover:bg-white hover:shadow-xl hover:shadow-blue-900/5 focus:outline-none"
+                            className="group relative flex h-44 flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-1 hover:border-blue-500 hover:shadow-md focus:outline-none"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                             <div className="relative z-10 w-full">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 font-bold text-blue-700">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded border border-slate-100 bg-slate-50 font-bold text-slate-700">
                                         {org.name.charAt(0).toUpperCase()}
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-900">{org.name}</h3>
@@ -151,7 +150,7 @@ export function WorkspaceSelector() {
                     ))}
 
                     {/* Create New Org Card */}
-                    <div className="relative flex h-44 flex-col justify-center rounded-2xl border-2 border-dashed border-slate-300/80 bg-slate-50/50 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30">
+                    <div className="relative flex h-44 flex-col justify-center rounded-xl border-2 border-dashed border-slate-300 bg-transparent p-6 text-center transition-all hover:border-slate-400 hover:bg-slate-50">
                         {!isCreating ? (
                             <button
                                 onClick={() => setIsCreating(true)}

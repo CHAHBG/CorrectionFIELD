@@ -29,7 +29,7 @@ import { supabase } from '@/infra/supabase';
 import { syncEngine } from '@/infra/sync/SyncEngine';
 import { layersApi } from '@/infra/api/layers.api';
 import type { Layer, LayerStyle } from '@/shared/types';
-
+import { LogOut, Download, Upload, Printer, Settings, Users, RefreshCw, Layers } from 'lucide-react';
 import './index.css';
 
 // ── QueryClient singleton ───────────────────────────
@@ -222,7 +222,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100">
+    <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900">FieldCorrect</h1>
@@ -330,53 +330,61 @@ function HeaderBar({
   onMembers: () => void;
   onSync: () => void;
 }) {
-  const { currentProject, currentUser } = useProjectStore();
+  const { currentProject, currentUser, logout } = useProjectStore();
 
   const navigate = useNavigate();
 
+  const handleLogout = async () => {
+    await logout();
+    await supabase.auth.signOut();
+  };
+
   return (
-    <header className="flex h-12 items-center justify-between border-b bg-white px-4 shadow-sm">
+    <header className="flex h-12 w-full items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/projects')} className="text-sm font-bold text-blue-600 hover:underline">
+        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
+          <Layers className="h-5 w-5" />
           FieldCorrect
         </button>
         {currentProject && (
-          <span className="text-sm text-gray-500">/ {currentProject.name}</span>
+          <span className="text-sm font-medium text-slate-500">/ {currentProject.name}</span>
         )}
       </div>
 
-      <div className="flex items-center gap-1">
-        <HeaderButton onClick={onImport} label="📥 Import" />
-        <HeaderButton onClick={onExport} label="📤 Export" />
-        <HeaderButton onClick={onPrint} label="🖨️ Imprimer" />
-        <div className="mx-1 h-5 w-px bg-gray-200" />
-        <HeaderButton onClick={onSettings} label="⚙️" />
-        <HeaderButton onClick={onMembers} label="👥" />
-        <HeaderButton onClick={onSync} label="🔄" />
-        <div className="mx-1 h-5 w-px bg-gray-200" />
+      <div className="flex items-center gap-2">
+        <HeaderButton onClick={onImport} icon={<Upload className="h-4 w-4" />} label="Import" />
+        <HeaderButton onClick={onExport} icon={<Download className="h-4 w-4" />} label="Export" />
+        <HeaderButton onClick={onPrint} icon={<Printer className="h-4 w-4" />} label="Imprimer" />
+        <div className="mx-2 h-5 w-px bg-slate-200" />
+        <HeaderButton onClick={onSettings} icon={<Settings className="h-4 w-4" />} />
+        <HeaderButton onClick={onMembers} icon={<Users className="h-4 w-4" />} />
+        <HeaderButton onClick={onSync} icon={<RefreshCw className="h-4 w-4" />} />
+        <div className="mx-2 h-5 w-px bg-slate-200" />
         <OnlineIndicator />
         {currentUser && (
-          <span className="ml-2 text-xs text-gray-500">{currentUser.full_name || currentUser.email}</span>
+          <span className="ml-2 mr-4 text-xs font-medium text-slate-600">{currentUser.full_name || currentUser.email}</span>
         )}
         <button
-          onClick={async () => { await supabase.auth.signOut(); }}
-          className="ml-2 text-xs text-gray-400 hover:text-red-500"
-          title="Déconnexion"
+          onClick={handleLogout}
+          className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-red-600"
+          title="Se déconnecter"
         >
-          ⏻
+          <LogOut className="h-3.5 w-3.5" />
+          Déconnexion
         </button>
       </div>
     </header>
   );
 }
 
-function HeaderButton({ onClick, label }: { onClick: () => void; label: string }) {
+function HeaderButton({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label?: string }) {
   return (
     <button
       onClick={onClick}
-      className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${label ? 'min-w-fit' : 'w-8'}`}
     >
-      {label}
+      {icon}
+      {label && <span>{label}</span>}
     </button>
   );
 }
