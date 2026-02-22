@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { Button, Input } from '@/shared/ui/components';
 import { cn } from '@/shared/ui/cn';
+import { useFeatures } from '@/modules/map/hooks/useFeatures';
 import type { Layer, LayerStyle, SimpleStyle, StyleRule } from '@/shared/types';
 
 interface SymbologyEditorProps {
@@ -15,6 +16,7 @@ interface SymbologyEditorProps {
 }
 
 export function SymbologyEditor({ layer, onSave, onClose }: SymbologyEditorProps) {
+  const { data: features } = useFeatures(layer.id);
   const [style, setStyle] = useState<LayerStyle>({ ...layer.style });
   const [activeTab, setActiveTab] = useState<'simple' | 'rules' | 'labels'>(
     style.mode === 'rule-based' ? 'rules' : 'simple'
@@ -69,6 +71,7 @@ export function SymbologyEditor({ layer, onSave, onClose }: SymbologyEditorProps
             <RuleBasedEditor
               style={style}
               fields={layer.fields}
+              features={features ?? []}
               onChange={(s) => setStyle(s)}
             />
           )}
@@ -129,10 +132,12 @@ function SimpleStyleEditor({
 function RuleBasedEditor({
   style,
   fields,
+  features,
   onChange,
 }: {
   style: LayerStyle;
   fields: Layer['fields'];
+  features: Array<{ props: Record<string, unknown> }>;
   onChange: (s: LayerStyle) => void;
 }) {
   const rb = style.ruleBased ?? {
@@ -141,8 +146,36 @@ function RuleBasedEditor({
     rules: [],
   };
 
+  const buildRulesFromField = (field: string): StyleRule[] => {
+    const values = new Set<string>();
+    for (const feature of features) {
+      const raw = feature.props?.[field];
+      if (raw == null) continue;
+      const str = String(raw).trim();
+      if (str.length === 0) continue;
+      values.add(str);
+      if (values.size >= 200) break;
+    }
+
+    return Array.from(values)
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({
+        value,
+        label: value,
+        style: { fillColor: randomColor(), strokeColor: '#1f2937' },
+      }));
+  };
+
   const updateField = (field: string) => {
-    onChange({ ...style, mode: 'rule-based', ruleBased: { ...rb, field } });
+    onChange({
+      ...style,
+      mode: 'rule-based',
+      ruleBased: {
+        ...rb,
+        field,
+        rules: buildRulesFromField(field),
+      },
+    });
   };
 
   const addRule = () => {
@@ -184,6 +217,24 @@ function RuleBasedEditor({
           ))}
           <option value="status">status (système)</option>
         </select>
+        <div className="mt-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              onChange({
+                ...style,
+                mode: 'rule-based',
+                ruleBased: {
+                  ...rb,
+                  rules: buildRulesFromField(rb.field),
+                },
+              });
+            }}
+          >
+            Générer les valeurs uniques
+          </Button>
+        </div>
       </div>
 
       <div>

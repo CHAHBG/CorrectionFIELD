@@ -10,6 +10,7 @@ import { layersApi } from '@/infra/api/layers.api';
 import { featuresApi } from '@/infra/api/features.api';
 import { useProjectStore } from '@/stores/projectStore';
 import { useLayerStore } from '@/stores/layerStore';
+import { reprojectFeatureCollection } from '@/shared/utils/crs';
 import type { FeatureStatus } from '@/shared/types';
 
 type Step = 'upload' | 'configure' | 'preview' | 'importing';
@@ -417,6 +418,7 @@ function ImportingStep({
     for (let layerIndex = 0; layerIndex < results.length; layerIndex++) {
       const result = results[layerIndex];
       const layerName = layerNames[layerIndex] ?? result.name;
+      const sourceCrs = result.crs ?? 'EPSG:4326';
       setCurrentLayer(layerName);
       setCurrentStep(`Création de la couche ${layerIndex + 1}/${results.length}…`);
 
@@ -424,7 +426,7 @@ function ImportingStep({
         projectId: currentProject.id,
         name: layerName,
         geometryType: result.geometryType,
-        sourceCrs: result.crs ?? 'EPSG:4326',
+        sourceCrs,
         fields: result.fields,
         style: {
           mode: 'simple',
@@ -442,12 +444,25 @@ function ImportingStep({
 
       setProgress(Math.max(1, Math.round((importedFeatures / totalFeatures) * 100)));
 
-      for (let i = 0; i < result.features.length; i += BATCH_SIZE) {
+      let featuresForInsert = result.features;
+      if (sourceCrs !== 'EPSG:4326') {
+        try {
+          featuresForInsert = reprojectFeatureCollection(
+            { type: 'FeatureCollection', features: result.features },
+            sourceCrs,
+            'EPSG:4326'
+          ).features;
+        } catch {
+          throw new Error(`Impossible de reprojeter ${layerName} depuis ${sourceCrs} vers EPSG:4326`);
+        }
+      }
+
+      for (let i = 0; i < featuresForInsert.length; i += BATCH_SIZE) {
         setCurrentStep(
-          `Import batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(result.features.length / BATCH_SIZE)} (${layerIndex + 1}/${results.length})`
+          `Import batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(featuresForInsert.length / BATCH_SIZE)} (${layerIndex + 1}/${results.length})`
         );
 
-        const batch = result.features.slice(i, i + BATCH_SIZE).map((f) => ({
+        const batch = featuresForInsert.slice(i, i + BATCH_SIZE).map((f) => ({
           layerId: layer.id,
           geom: f.geometry,
           props: (f.properties ?? {}) as Record<string, unknown>,
