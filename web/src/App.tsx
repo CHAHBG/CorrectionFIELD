@@ -29,7 +29,8 @@ import { supabase } from '@/infra/supabase';
 import { syncEngine } from '@/infra/sync/SyncEngine';
 import { layersApi } from '@/infra/api/layers.api';
 import type { Layer, LayerStyle } from '@/shared/types';
-import { LogOut, Download, Upload, Printer, Settings, Users, RefreshCw, Map } from 'lucide-react';
+import { LogOut, Download, Upload, Printer, Settings, Users, RefreshCw } from 'lucide-react';
+import { Logo, LogoWithText } from '@/shared/components/Logo';
 import './index.css';
 
 // ── QueryClient singleton ───────────────────────────
@@ -227,9 +228,7 @@ function LoginPage() {
       {/* Left Area - Brand & Visual */}
       <div className="hidden w-1/2 flex-col justify-between bg-[#FAF9F6] p-12 lg:flex border-r border-[#EFECE5]">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-sm font-bold text-white shadow-lg shadow-green-600/20">
-            FC
-          </div>
+          <Logo className="h-10 w-10" />
           <span className="text-2xl font-bold tracking-tight text-slate-900">FieldCorrect</span>
         </div>
 
@@ -265,9 +264,7 @@ function LoginPage() {
         <div className="mx-auto w-full max-w-md">
           {/* Mobile Header (hidden on desktop) */}
           <div className="mb-12 flex items-center justify-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-sm font-bold text-white shadow-lg shadow-green-600/20">
-              FC
-            </div>
+            <Logo className="h-10 w-10" />
             <span className="text-2xl font-bold tracking-tight text-slate-900">FieldCorrect</span>
           </div>
 
@@ -388,7 +385,7 @@ function LoginPage() {
                   type="button"
                   className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 shadow-sm"
                 >
-                  <Map className="h-5 w-5 text-blue-600" />
+                  <Logo className="h-5 w-5" />
                   Connexion SSO Organisation
                 </button>
               </>
@@ -428,10 +425,13 @@ function HeaderBar({
 
   return (
     <header className="flex h-14 w-full items-center justify-between border-b border-[#E5E0D8] bg-[#F8F5F2] px-6">
-      <div className="flex items-center gap-4 text-sm">
-        <button onClick={() => navigate('/projects')} className="flex items-center gap-2 font-bold text-slate-900 transition-colors hover:text-blue-600">
-          <Map className="h-4 w-4 text-blue-600" strokeWidth={2.5} />
-          FieldCorrect
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => navigate('/projects')}
+          className="transition-opacity hover:opacity-80"
+          title="Retour aux projets"
+        >
+          <LogoWithText className="h-6" />
         </button>
         {currentProject && (
           <div className="flex items-center gap-2 font-medium text-slate-500">

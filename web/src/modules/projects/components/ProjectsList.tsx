@@ -9,7 +9,8 @@ import { useProjects, useCreateProject, useDeleteProject } from '../hooks/usePro
 import { useProjectStore } from '@/stores/projectStore';
 import type { Project } from '@/shared/types';
 import { supabase } from '@/infra/supabase';
-import { LogOut, Plus, User, Map } from 'lucide-react';
+import { LogOut, Plus, User } from 'lucide-react';
+import { LogoWithText } from '@/shared/components/Logo';
 
 export function ProjectsList() {
   const navigate = useNavigate();
@@ -61,10 +62,10 @@ export function ProjectsList() {
           <div className="flex items-center gap-6">
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 font-bold text-slate-900 transition-colors hover:text-blue-600"
+              className="transition-opacity hover:opacity-80"
+              title="Retour aux espaces de travail"
             >
-              <Map className="h-6 w-6 text-blue-600" strokeWidth={2.5} />
-              <span className="text-xl leading-none tracking-tight">FieldCorrect</span>
+              <LogoWithText className="h-8" />
             </button>
           </div>
 
